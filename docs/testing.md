@@ -154,12 +154,13 @@ One press of Next is one round trip: apply the tool, let SurgE run its turn upda
 
 | Endpoint | What it does |
 | --- | --- |
-| `POST /surgeries` | Starts a surgery from malady, special condition, skill level (0–100), modifier, policy and seed; blank fields are random |
+| `POST /surgeries` | Starts a surgery from malady, special condition, skill level (0–100), modifier, policy and seed; blank fields are random (a blank modifier means none; the same seed fills blanks the same way) |
+| `GET /` and `GET /options` | The page, and the malady, condition, modifier, policy and tool lists the form uses |
 | `GET /surgeries/{id}` | Returns the current screen, the pending decision and the turn log |
 | `POST /surgeries/{id}/next` | Applies the pending decision, runs one turn, returns the new screen and next decision |
 | `POST /surgeries/{id}/restart` | Replays from turn 0 with the same settings and seed |
 
-Surgeries live in server memory only; restarting the server clears them.
+Surgeries live in server memory only; restarting the server clears them, and only the newest 100 are kept. `uv run surg web --port N` changes the port; there is deliberately no way to change the host.
 
 ### Page
 

@@ -40,6 +40,7 @@ Python 3.12 or newer is required. SurgE uses 3.12 f-string syntax and fails to i
 | Play one surgery in the terminal | `uv run surg play --malady "Heart Attack" --condition tough_skin --skill 50 --seed 7` |
 | Quick benchmark (about 1 minute) | `uv run surg bench --runs 5` |
 | Full benchmark | `uv run surg bench --runs 200` |
+| Save a report as the number to beat | `uv run surg bench --runs 200 --out reports/baseline` |
 | Compare with a saved report | `uv run surg bench --runs 20 --compare reports/baseline.json` |
 | Web viewer | `uv run surg web`, then open `http://127.0.0.1:8000` |
 

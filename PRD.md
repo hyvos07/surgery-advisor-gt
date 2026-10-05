@@ -152,7 +152,9 @@ All enum values are lowercase snake case. A field is `null` when the screen does
 | `surg next state.json` | Prints the decision for one state (memory starts empty) |
 | `surg play --skill 40 --condition hyperactive --seed 7` | Runs one SurgE surgery in the terminal, turn by turn |
 | `surg bench --runs 200` | Runs the full benchmark grid and writes a report |
-| `surg web` | Starts the web viewer on `http://127.0.0.1:8000` |
+| `surg web` | Starts the web viewer on `http://127.0.0.1:8000` (`--port` changes the port; the host is fixed) |
+
+`surg play` also takes `--malady`, `--modifier`, `--policy` and `--log FILE.jsonl`; blank settings are chosen at random from the seed. `surg bench` also takes `--policy`, `--out BASE`, `--compare REPORT.json` and `--workers`.
 
 ## 9. Non-functional requirements
 
