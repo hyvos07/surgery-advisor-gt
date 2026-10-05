@@ -103,6 +103,20 @@ def start_surgery(
     return patient
 
 
+def train_e_tips(patient: Patient) -> str:
+    """SurgE's Train-E tips for the patient's current screen.
+
+    Train-E mode changes the rules (Anesthetic on an unconscious patient gives
+    Near Coma instead of death), so it is switched on only around this one call.
+    """
+    patient.TrainE = True
+    try:
+        patient._UpdateTrainEText()
+        return str(patient.TrainEText)
+    finally:
+        patient.TrainE = False
+
+
 __all__ = [
     "CONDITION_NAMES",
     "MALADY_NAMES",
@@ -114,4 +128,5 @@ __all__ = [
     "Patient",
     "TextManager",
     "start_surgery",
+    "train_e_tips",
 ]

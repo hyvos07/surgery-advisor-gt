@@ -2,7 +2,7 @@
 
 The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the full benchmark grid with zero avoidable deaths. Requirements are in [PRD.md](PRD.md); this file is the order of work.
 
-**Current status:** M0 done; M1 started (observation adapter and runner done). Package layout, `surg` stubs, SurgE submodule, smoke tests, CI and pre-commit hooks are in place. Next up in M1: the Train-E baseline.
+**Current status:** M0 done; M1 started (observation adapter, runner and baseline done). Package layout, `surg` stubs, SurgE submodule, smoke tests, CI and pre-commit hooks are in place. Next up in M1: `surg bench`.
 
 ## Milestones
 
@@ -47,8 +47,8 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 
 **Train-E baseline** (`src/harness/baseline.py`)
 
-- [ ] Generate SurgE's Train-E tips without turning on Train-E mode (it changes the game rules)
-- [ ] Map each tip to a tool and take the first one that is usable
+- [x] Generate SurgE's Train-E tips without turning on Train-E mode (it changes the game rules)
+- [x] Map each tip to a tool and take the first one that is usable
 
 **CLI and viewer**
 
