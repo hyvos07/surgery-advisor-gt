@@ -78,6 +78,7 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 
 - [ ] Full grid for advisor and baseline with the same seeds
 - [ ] Report: success rate per malady, condition and skill level, side by side
+- [ ] Tools used: compare the tools per success only on surgeries (same cell and seed) that both advisor and baseline win, and record the fewest tools ever needed per cell as the reference to approach
 - [ ] For every death, the rules that fired in the last 3 turns; rank rules by how often they appear
 - [ ] Deeper death classification: look back several turns, not just the fatal one, to find mistakes made earlier (M1 only checks the fatal turn)
 - [ ] Separate modifier run: 27 maladies × 4 modifiers × skill 0 and 100 × 50 runs

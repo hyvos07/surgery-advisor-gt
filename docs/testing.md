@@ -118,7 +118,8 @@ Written to `reports/<timestamp>.json` and `reports/<timestamp>.md`, or to `<BASE
 The JSON holds the grid, per-cell outcome counts and, for every death, its seed, outcome and the last 3 rules that fired. Contents:
 
 - Success rate and outcome counts per malady, per condition and per skill level, advisor and baseline side by side
-- Average tools used per success
+- Tools used, since fewer is better once a surgery succeeds: the average per success and the fewest any success needed, in every row; a **Tools used** table of how many of each tool a success takes and how many every surgery spent in total (the gap is waste, such as Sponge loops); with `--compare`, the change in the average. The per-cell JSON keeps the counts per tool (`tool_counts_success`, `tool_counts_all`) and the fewest (`min_tools_on_success`). Each turn log line (`surg play --log`, the web turn log) records the tool applied, and the web end card lists the tools a surgery used.
+- Caution: the averages of two policies are not like for like when one succeeds on harder surgeries, because those need more tools. Judge efficiency on surgeries both policies win.
 - For every death, the rules that fired in the last 3 turns, then rules ranked by how often they appear before deaths
 - A viewer link for each death: `http://127.0.0.1:8000/?malady=…&condition=…&skill=…&seed=…`
 - With `--compare`, the change in each number against the saved report
