@@ -2,8 +2,8 @@
 #
 # A .gitignore only stops untracked files from being added. It does not
 # remove files that are already committed, and it does not catch a secret
-# pasted into a tracked file. The pre-commit secret scan (see AGENTS.md,
-# "Secrets") covers those cases.
+# pasted into a tracked file. The gitleaks secret scan covers those cases:
+# on every commit (.pre-commit-config.yaml) and on every push (CI).
 
 # ---------------------------------------------------------------------------
 # Secrets and credentials. This project needs none; if one ever appears,
