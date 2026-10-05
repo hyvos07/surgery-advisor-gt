@@ -1,5 +1,347 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Surgery Advisor</title></head>
-<body><p>Viewer not implemented yet (M1).</p></body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surgery Advisor</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1d232b; --muted: #637083; --line: #dde2e8;
+    --accent: #2563eb; --accent-ink: #ffffff; --good: #15803d; --warn: #b45309; --bad: #b91c1c;
+    --pick: #fde68a; --pick-line: #d97706; --off: #eef0f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161b; --card: #1a2027; --ink: #e6eaef; --muted: #93a0b0; --line: #2b343e;
+      --accent: #5b8cff; --accent-ink: #0b1220; --good: #4ade80; --warn: #fbbf24; --bad: #f87171;
+      --pick: #4a3a0c; --pick-line: #fbbf24; --off: #20272f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 16px;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+  @media (max-width: 800px) { main { grid-template-columns: minmax(0, 1fr); } }
+  h1 { font-size: 20px; margin: 0; grid-column: 1 / -1; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    margin: 0 0 8px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .stack { display: grid; gap: 16px; align-content: start; }
+  .vitals { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+  .vital { background: var(--off); border-radius: 8px; padding: 8px 10px; }
+  .vital b { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .vital span { font-size: 17px; font-weight: 600; }
+  .good { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  .notice { margin: 10px 0 0; }
+  .toolmsg { margin: 10px 0 0; padding: 8px 10px; border-left: 3px solid var(--line); background: var(--off); }
+  .toolmsg.fail { border-left-color: var(--bad); }
+  .tray { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; margin-top: 12px; }
+  .tool { text-align: center; padding: 8px 4px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: var(--card); }
+  .tool.off { background: var(--off); color: var(--muted); opacity: .55; }
+  .tool.pick { background: var(--pick); border-color: var(--pick-line); font-weight: 700; opacity: 1; color: var(--ink); }
+  .advice .tool-name { font-size: 24px; font-weight: 700; }
+  .advice .rule { display: inline-block; padding: 1px 8px; border-radius: 99px; background: var(--off); font-weight: 600; margin-left: 6px; font-size: 13px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+  input, select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); min-width: 0; }
+  form { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; align-items: end; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .logwrap { max-height: 320px; overflow: auto; }
+  .end { border-left: 4px solid var(--accent); }
+  .end.success { border-left-color: var(--good); } .end.dead { border-left-color: var(--bad); }
+  .muted { color: var(--muted); }
+  .error { color: var(--bad); margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Surgery Advisor <span class="muted" style="font-weight:400;font-size:14px">step-by-step viewer</span></h1>
+
+  <div class="stack">
+    <section id="screen" aria-live="polite">
+      <h2>Patient</h2>
+      <p class="muted" id="empty">Start a surgery to see the patient.</p>
+      <div id="patient" hidden>
+        <div class="vitals" id="vitals"></div>
+        <p class="notice" id="notices"></p>
+        <p class="toolmsg" id="toolmsg"></p>
+        <div class="tray" id="tray"></div>
+      </div>
+    </section>
+
+    <section id="endcard" class="end" hidden>
+      <h2>Result</h2>
+      <div id="endbody"></div>
+    </section>
+
+    <section>
+      <h2>Turn log</h2>
+      <div class="logwrap">
+        <table>
+          <thead><tr><th>Turn</th><th>Tool</th><th>Rule</th><th>What happened</th></tr></thead>
+          <tbody id="log"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="advice">
+      <h2>Advisor</h2>
+      <div id="advice"><span class="muted">No surgery running.</span></div>
+      <div class="controls" style="margin-top:12px">
+        <button id="next" class="primary" disabled>Next</button>
+        <button id="auto" disabled>Auto-play</button>
+        <button id="pause" disabled>Pause</button>
+        <button id="restart" disabled>Restart</button>
+      </div>
+      <label style="margin-top:10px">Speed: <span id="speedlabel">1.5</span> s per turn
+        <input type="range" id="speed" min="0.5" max="3" step="0.5" value="1.5">
+      </label>
+      <label style="margin-top:10px;display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink)">
+        <input type="checkbox" id="traine"> Show SurgE's own Train-E hint
+      </label>
+      <div id="tips" hidden style="margin-top:8px"></div>
+    </section>
+
+    <section>
+      <h2>New surgery</h2>
+      <form id="form">
+        <label>Malady <select id="malady"><option value="">random</option></select></label>
+        <label>Condition <select id="condition"><option value="">random</option></select></label>
+        <label>Skill (0-100) <input id="skill" type="number" min="0" max="100" placeholder="random"></label>
+        <label>Modifier <select id="modifier"><option value="">none</option></select></label>
+        <label>Seed <input id="seed" type="number" min="0" placeholder="random"></label>
+        <label>Policy <select id="policy"></select></label>
+        <button class="primary" type="submit">Start</button>
+      </form>
+      <p class="error" id="error" role="alert"></p>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const TOOL_LABELS = { defibrillator: "Defibrillator", sponge: "Sponge", anesthetic: "Anesthetic",
+  stitches: "Stitches", scalpel: "Scalpel", ultrasound: "Ultrasound", antiseptic: "Antiseptic",
+  fix_it: "Fix It", lab_kit: "Lab Kit", antibiotics: "Antibiotics", transfusion: "Transfusion",
+  splint: "Splint", pins: "Pins", clamp: "Clamp" };
+const label = (tool) => TOOL_LABELS[tool] || tool;
+const words = (value) => (value === null || value === undefined ? "-" : String(value).replace(/_/g, " "));
+
+let tools = [], current = null, playing = false, timer = null, busy = false;
+
+function el(tag, text, className) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  if (className) node.className = className;
+  return node;
+}
+
+async function api(path, method, body) {
+  const response = await fetch(path, {
+    method: method || "GET",
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || response.statusText);
+  return data;
+}
+
+function showError(message) { $("error").textContent = message || ""; }
+
+function vital(name, value, tone) {
+  const box = el("div", undefined, "vital");
+  box.append(el("b", name), el("span", words(value), tone));
+  return box;
+}
+
+const PULSE_TONE = { strong: "good", steady: "", weak: "warn", extremely_weak: "bad" };
+const STATUS_TONE = { awake: "warn", coming_to: "warn", unconscious: "good", heart_stopped: "bad" };
+const SITE_TONE = { clean: "good", not_sanitized: "", unclean: "warn", unsanitary: "bad" };
+
+function renderScreen(s) {
+  const v = $("vitals");
+  v.replaceChildren(
+    vital("Pulse", s.pulse, PULSE_TONE[s.pulse]),
+    vital("Status", s.status, STATUS_TONE[s.status]),
+    vital("Temp", s.temperature + " °F", s.temperature >= 104 ? "bad" : s.temperature >= 100 ? "warn" : "good"),
+    vital("Operation site", s.site, SITE_TONE[s.site]),
+    vital("Incisions", s.incisions),
+    vital("Bones", s.bones === null ? "unknown" : s.bones.broken + " broken, " + s.bones.shattered + " shattered"),
+    vital("Bleeding", s.bleeding, s.bleeding ? "bad" : ""),
+    vital("Fever", s.fever, s.fever ? "bad" : ""),
+  );
+  const notes = $("notices");
+  notes.replaceChildren();
+  const lines = [];
+  if (s.visibility === "cant_see") lines.push(["You can't see what you are doing!", "bad"]);
+  else if (s.visibility === "hard_to_see") lines.push(["It is becoming hard to see your work.", "warn"]);
+  if (s.status === "heart_stopped") lines.push(["Patient's heart has stopped!", "bad"]);
+  if (s.special_condition_text) lines.push([s.special_condition_text, "warn"]);
+  lines.push([s.scan_text || "The patient has not been diagnosed.", "muted"]);
+  lines.forEach(([text, tone]) => { notes.append(el("span", text, tone), el("br")); });
+  const msg = $("toolmsg");
+  msg.textContent = s.last_tool_text;
+  msg.className = "toolmsg" + (s.last_tool_text.startsWith("[Skill Fail") ? " fail" : "");
+}
+
+function renderTray(s, decision) {
+  const tray = $("tray");
+  tray.replaceChildren();
+  tools.forEach((tool) => {
+    const usable = s.usable_tools.includes(tool);
+    const pick = decision && decision.tool === tool;
+    const box = el("div", label(tool), "tool" + (usable ? "" : " off") + (pick ? " pick" : ""));
+    box.title = pick ? "Advisor's pick" : usable ? "Usable" : "Not usable now";
+    tray.append(box);
+  });
+}
+
+function renderAdvice(d) {
+  const box = $("advice");
+  box.replaceChildren();
+  if (!current) { box.append(el("span", "No surgery running.", "muted")); return; }
+  if (current.ended || !current.decision) { box.append(el("span", "The surgery has ended.", "muted")); return; }
+  const head = el("div");
+  head.append(el("span", label(d.tool), "tool-name"), el("span", d.rule, "rule"));
+  box.append(head, el("div", d.reason));
+  const meta = current.settings;
+  box.append(el("div", current.policy + " policy · turn " + current.turn + " · seed " + meta.seed, "muted"));
+}
+
+function renderLog(log) {
+  const body = $("log");
+  body.replaceChildren();
+  [...log].reverse().forEach((entry) => {
+    const row = el("tr");
+    const changes = Object.entries(entry.changes).map(([k, [a, b]]) =>
+      k + ": " + (typeof a === "object" ? JSON.stringify(a) : words(a)) + " → " +
+      (typeof b === "object" ? JSON.stringify(b) : words(b)));
+    const what = [entry.skill_fail ? "skill fail" : null, entry.legal ? null : "illegal pick, Sponge used"]
+      .concat(changes).filter(Boolean).join("; ") || "no visible change";
+    row.append(el("td", String(entry.turn)), el("td", label(entry.tool)),
+      el("td", entry.rule), el("td", what));
+    row.cells[3].title = entry.text;
+    body.append(row);
+  });
+}
+
+function renderEnd(end) {
+  const card = $("endcard");
+  card.hidden = !end;
+  if (!end) return;
+  card.className = "end " + (end.outcome === "success" ? "success" : end.outcome === "timeout" ? "" : "dead");
+  const used = Object.entries(end.tools_used).map(([t, n]) => label(t) + " ×" + n).join(", ");
+  $("endbody").replaceChildren(
+    el("div", end.text, "advice"),
+    el("div", "Outcome: " + words(end.outcome)),
+    el("div", end.turns + " turns · " + end.skill_fails + " skill fails · " + end.illegal_moves + " illegal moves"),
+    el("div", "Tools: " + used, "muted"),
+  );
+  $("endbody").firstChild.style.fontWeight = "700";
+}
+
+function renderTips() {
+  const box = $("tips");
+  box.hidden = !$("traine").checked || !current;
+  box.replaceChildren();
+  if (box.hidden) return;
+  if (!current.train_e.length) { box.append(el("span", "No Train-E tips right now.", "muted")); return; }
+  current.train_e.forEach((tip) => {
+    box.append(el("div", tip.heading + (tip.description ? " — " + tip.description : "")));
+  });
+}
+
+function render() {
+  const has = current !== null;
+  $("empty").hidden = has;
+  $("patient").hidden = !has;
+  if (has) {
+    renderScreen(current.state);
+    renderTray(current.state, current.decision);
+    renderLog(current.log);
+  }
+  renderAdvice(current && current.decision);
+  renderEnd(current && current.end);
+  renderTips();
+  $("next").disabled = !has || current.ended || busy;
+  $("auto").disabled = !has || current.ended || playing;
+  $("pause").disabled = !playing;
+  $("restart").disabled = !has;
+  if (has && current.ended) stopPlaying();
+}
+
+function stopPlaying() { playing = false; clearTimeout(timer); timer = null; $("auto").disabled = !current || current.ended; $("pause").disabled = true; }
+
+async function step() {
+  if (!current || current.ended || busy) return;
+  busy = true; showError("");
+  try { current = await api("/surgeries/" + current.id + "/next", "POST"); }
+  catch (error) { showError(error.message); stopPlaying(); }
+  busy = false;
+  render();
+}
+
+function schedule() {
+  if (!playing) return;
+  timer = setTimeout(async () => { await step(); schedule(); }, Number($("speed").value) * 1000);
+}
+
+async function begin(params) {
+  showError(""); stopPlaying();
+  try { current = await api("/surgeries", "POST", params); }
+  catch (error) { showError(error.message); return; }
+  const s = current.settings;
+  const q = new URLSearchParams({ malady: s.malady, condition: s.condition, skill: s.skill, seed: s.seed });
+  if (s.modifier) q.set("modifier", s.modifier);
+  history.replaceState(null, "", "?" + q.toString());
+  render();
+}
+
+$("form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const number = (id) => ($(id).value === "" ? null : Number($(id).value));
+  begin({ malady: $("malady").value || null, condition: $("condition").value || null,
+    skill: number("skill"), modifier: $("modifier").value || null,
+    policy: $("policy").value, seed: number("seed") });
+});
+$("next").addEventListener("click", step);
+$("auto").addEventListener("click", () => { playing = true; render(); schedule(); });
+$("pause").addEventListener("click", () => { stopPlaying(); render(); });
+$("restart").addEventListener("click", async () => {
+  stopPlaying(); showError("");
+  try { current = await api("/surgeries/" + current.id + "/restart", "POST"); }
+  catch (error) { showError(error.message); }
+  render();
+});
+$("speed").addEventListener("input", () => { $("speedlabel").textContent = $("speed").value; });
+$("traine").addEventListener("change", renderTips);
+
+async function init() {
+  const options = await api("/options");
+  tools = options.tools;
+  const fill = (id, values) => values.forEach((v) => { const o = el("option", v); o.value = v; $(id).append(o); });
+  fill("malady", options.maladies);
+  fill("condition", options.conditions);
+  fill("modifier", options.modifiers);
+  fill("policy", options.policies);
+  const q = new URLSearchParams(location.search);
+  ["malady", "condition", "skill", "modifier", "seed"].forEach((k) => { if (q.has(k)) $(k).value = q.get(k); });
+  render();
+  // A link from a benchmark report starts exactly that surgery.
+  if (["malady", "condition", "skill", "modifier", "seed"].some((k) => q.has(k))) $("form").requestSubmit();
+}
+init().catch((error) => showError(error.message));
+</script>
+</body>
 </html>

@@ -8,7 +8,6 @@ from pathlib import Path
 # Subcommands not built yet -> (help text, milestone that implements it).
 _STUBS = {
     "next": ("Print the decision for one screen-state JSON file", "M2"),
-    "web": ("Start the web viewer on http://127.0.0.1:8000", "M1"),
 }
 
 
@@ -107,6 +106,18 @@ def _play(args: argparse.Namespace) -> int:
     return 0
 
 
+def _web(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    from web.app import app
+
+    # Local only: SurgE is AGPL-3.0, and hosting the viewer publicly would mean
+    # publishing source (AGENTS.md hard rule 9). There is deliberately no --host.
+    print(f"Viewer at http://127.0.0.1:{args.port}  (Ctrl+C to stop)")
+    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="surg", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -134,6 +145,9 @@ def main(argv: list[str] | None = None) -> int:
     play.add_argument("--policy", choices=["baseline", "advisor"], default="baseline")
     play.add_argument("--log", metavar="FILE.jsonl", help="write each turn as JSON")
 
+    web = sub.add_parser("web", help="Start the web viewer on http://127.0.0.1:8000")
+    web.add_argument("--port", type=int, default=8000)
+
     # The stubs accept any options, so the documented commands parse until built.
     ns, extra = parser.parse_known_args(argv)
     if ns.command in _STUBS:
@@ -144,7 +158,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if extra:
         parser.error(f"unrecognized arguments: {' '.join(extra)}")
-    return _play(ns) if ns.command == "play" else _bench(ns)
+    handlers = {"play": _play, "bench": _bench, "web": _web}
+    return handlers[ns.command](ns)
 
 
 if __name__ == "__main__":
