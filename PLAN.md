@@ -2,7 +2,7 @@
 
 The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the full benchmark grid with zero avoidable deaths. Requirements are in [PRD.md](PRD.md); this file is the order of work.
 
-**Current status:** M0 done except the CI smoke benchmark, which waits for `surg bench` in M1. Package layout, `surg` stubs, SurgE submodule, smoke tests and CI are in place. Next up is M1.
+**Current status:** M0 done. Package layout, `surg` stubs, SurgE submodule, smoke tests, CI and pre-commit hooks are in place. Next up is M1.
 
 ## Milestones
 
@@ -23,7 +23,7 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 - [x] Add SurgE as a git submodule at `vendor/SurgE`, pinned to commit `f606a003fac9012ba756de5e89c8b736c213b87a`
 - [x] Package layout from [AGENTS.md](AGENTS.md#repository-layout), with empty modules
 - [x] `surg` console script entry point with stub subcommands
-- [ ] CI: lint, type check, unit tests and a gitleaks secret scan on every push (done); a 1-run-per-cell smoke benchmark on the main branch (waits for `surg bench` in M1)
+- [x] CI: lint, type check, unit tests and a gitleaks secret scan on every push; a 1-run-per-cell smoke benchmark on the main branch (non-blocking until `surg bench` lands in M1)
 - [x] `.gitignore` covering secrets, `.venv/`, caches, `reports/` and `logs/`
 - [x] `.pre-commit-config.yaml` with the gitleaks secret scan, private-key detection and a 500 KB file-size limit
 - [x] Add `pre-commit` as a dev dependency and run `uv run pre-commit run --all-files` once on the initial commit
