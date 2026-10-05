@@ -18,6 +18,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D12 | 2026-10-05 | Owner's setup (skill 100, Exquisite Bone Saw) is the headline benchmark | Accepted |
 | D13 | 2026-10-05 | Fix P5 re-cutting after Fix It; Sponge only at `cant_see` | Accepted |
 | D14 | 2026-10-05 | `minimal` Antiseptic becomes the default mode | Accepted, not yet applied |
+| D15 | 2026-10-05 | Close the incisions before Fix It, and do Fix It last | Accepted, not yet applied |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -125,3 +126,16 @@ Choices someone might later question, with the reason and what would reopen them
 - **Decision:** the owner chose `minimal` as the default.
 - **Status:** accepted, not yet applied. The code default is still `draft`. Switching it is an open task in [PLAN.md](../PLAN.md) (M3): change `Config.antiseptic_mode`'s default, make the `advisor` policy use it, keep `draft` selectable, re-run the benchmarks and save new comparison reports.
 - **Revisit if:** M3's death analysis ties deaths to an unclean site or infection.
+
+## D15. Close the incisions before Fix It, and do Fix It last
+
+- **Context:** the owner noticed that Fix It stays usable after the incisions are stitched closed again. Checked in SurgE: `_UpdateFixability` sets "fixable" once the needed incisions are reached and never clears it until Fix It succeeds. In 19 of 20 seeded Heart Attack surgeries, cut, close, then Fix It as the very last tool ended in success.
+- **Decision:** once Fix It is unlocked, close every incision first (Pins on shattered bones still come before closing), then use Fix It with no incision open.
+- **Why:** each turn with an incision open costs pulse, adds dirt and raises the fever risk, and an awake patient with one open bleeds more every turn. A Fix It skill fail then costs a turn with the site closed instead of open, and the patient may already be awake, with no heart-stop risk and no need to re-dose the Anesthetic.
+- **Planned rule change (rule IDs unchanged):**
+  - Memory gains `fix_unlocked`: true once Fix It appears in `usable_tools` or the scan text shows the malady's fix text, until Fix It succeeds.
+  - P5 (Cut): no cut for Fix It once it is unlocked.
+  - P6 (Close): also fires when Fix It is unlocked but not done yet.
+  - P3 (Fix): fires only when no incision is open.
+- **Tests to write first:** a Heart Attack at its needed incisions with Fix It unlocked and the patient asleep gets Stitches (P6), not Fix It; the same patient with 0 incisions gets Fix It (P3) and P5 stays silent; a Broken Heart with a shattered bone gets Pins before any closing.
+- **Status:** accepted, not yet applied. It is an open task in [PLAN.md](../PLAN.md) (M3), to be benchmarked against the current rules in the owner's setup and the full grid, with the numbers added here.

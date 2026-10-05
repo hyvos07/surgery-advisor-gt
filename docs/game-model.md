@@ -47,7 +47,7 @@ Most vitals are shown as words, not numbers. The advisor sees only the words.
 | Stitches | Site visible | Closes 1 incision; if none are open, stops 1 bleeding | Nothing |
 | Ultrasound | Not yet used and site visible | Shows diagnosis and bones, reveals a hidden condition | Nothing; stays usable |
 | Antiseptic | Site visible | Sanitation to 20 | Nothing |
-| Fix It | After Ultrasound, incisions at the needed count, not yet fixed | Fixes the malady | Nothing; try again |
+| Fix It | After Ultrasound, incisions at the needed count, not yet fixed. **Once unlocked it stays usable, even after every incision is stitched closed again** (SurgE never revokes it; its code comment says the real game behaves the same) | Fixes the malady | Nothing; try again |
 | Lab Kit | Not yet used and site visible | Unlocks Antibiotics | Nothing; stays usable |
 | Antibiotics | After a successful Lab Kit, site visible | Fever −3 (−1.5 if antibiotic-resistant), only if temperature > 98.6°F | Fever +1 |
 | Transfusion | Site visible | Pulse +15 (max 40) | Dirt +1 |
