@@ -1,8 +1,9 @@
-# Run on every commit after `uv run pre-commit install`; CI runs the same hooks.
+# Run on every commit after `uv run pre-commit install`. CI runs ruff and the
+# same gitleaks version directly (see .github/workflows/ci.yml).
 # vendor/SurgE is a submodule, so its files are never passed to these hooks.
 repos:
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.28.0
+    rev: v8.30.0
     hooks:
       - id: gitleaks
 
@@ -14,7 +15,7 @@ repos:
         args: ["--maxkb=500"]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.3
+    rev: v0.16.10
     hooks:
       - id: ruff-check
       - id: ruff-format
