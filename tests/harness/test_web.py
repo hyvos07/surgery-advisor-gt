@@ -28,7 +28,10 @@ def test_page_is_served() -> None:
 def test_options_list_every_choice() -> None:
     options = client.get("/options").json()
     assert len(options["maladies"]) == 27 and len(options["conditions"]) == 6
-    assert len(options["tools"]) == 14 and options["policies"] == ["baseline"]
+    assert len(options["tools"]) == 14 and options["policies"] == [
+        "baseline",
+        "train-e-plus",
+    ]
 
 
 def test_start_returns_turn_zero_and_the_first_pick() -> None:

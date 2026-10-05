@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+POLICY_CHOICES = ["baseline", "train-e-plus", "advisor"]
+
 # Subcommands not built yet -> (help text, milestone that implements it).
 _STUBS = {
     "next": ("Print the decision for one screen-state JSON file", "M2"),
@@ -128,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
     bench.add_argument("--runs", type=int, default=200, help="seeded runs per cell")
     bench.add_argument(
         "--policy",
-        choices=["baseline", "advisor"],
+        choices=POLICY_CHOICES,
         default="baseline",
         help="policy to score (advisor arrives in M2)",
     )
@@ -142,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
     play.add_argument("--skill", type=int, help="0 to 100")
     play.add_argument("--modifier", help="stethoscope, tea, ...")
     play.add_argument("--seed", type=int, help="same seed, same surgery")
-    play.add_argument("--policy", choices=["baseline", "advisor"], default="baseline")
+    play.add_argument("--policy", choices=POLICY_CHOICES, default="baseline")
     play.add_argument("--log", metavar="FILE.jsonl", help="write each turn as JSON")
 
     web = sub.add_parser("web", help="Start the web viewer on http://127.0.0.1:8000")

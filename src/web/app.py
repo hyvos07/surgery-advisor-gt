@@ -24,7 +24,7 @@ from harness.surge import (
 
 STATIC = Path(__file__).parent / "static"
 MAX_SURGERIES = 100  # the oldest is dropped beyond this; surgeries live in memory only
-POLICIES = ["baseline"]  # the advisor joins in M2
+POLICIES = ["baseline", "train-e-plus"]  # the advisor joins in M2
 
 # Fields whose change is worth showing in the turn log.
 _WATCHED = (

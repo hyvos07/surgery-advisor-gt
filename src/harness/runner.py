@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from harness.baseline import baseline_policy
+from harness.baseline import baseline_policy, train_e_plus_policy
 from harness.observe import observe, strip_formatting
 from harness.surge import (
     CONDITION_NAMES,
@@ -77,9 +77,13 @@ class Result:
 def policy_by_name(name: str) -> Policy:
     if name == "baseline":
         return baseline_policy
+    if name == "train-e-plus":
+        return train_e_plus_policy
     if name == "advisor":
         raise NotImplementedError("the advisor policy arrives in milestone M2")
-    raise ValueError(f"unknown policy {name!r}; choose baseline or advisor")
+    raise ValueError(
+        f"unknown policy {name!r}; choose baseline, train-e-plus or advisor"
+    )
 
 
 def resolve_settings(

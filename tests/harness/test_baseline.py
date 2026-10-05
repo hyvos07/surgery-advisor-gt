@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from harness.baseline import baseline_policy, parse_tips, tip_tool
-from harness.observe import observe
+from harness.observe import observe, strip_formatting
 from harness.runner import SUCCESS, Settings, run_surgery
 from harness.surge import MALADY_NAMES, Patient, start_surgery, train_e_tips
 
@@ -99,6 +99,27 @@ def test_tips_are_parsed_in_surges_order() -> None:
     patient = patient_with(SleepLevel=0, Incisions=1, SiteSanitation=0, SiteDirtyness=5)
     headings = [h for h, _ in parse_tips(train_e_tips(patient))]
     assert headings[:3] == ["Awake", "Clean the Area", "Poor Visibility"]
+
+
+def test_a_tip_glued_to_a_low_bleeding_tip_is_not_lost() -> None:
+    """SurgE writes "Losing Blood" without a newline when bleeding is under 4."""
+    patient = patient_with(
+        "Broken Leg",
+        SleepLevel=5,
+        IsUltrasoundUsed=True,
+        ShatteredBoneCount=1,
+        BleedingLevel=2,
+        SiteSanitation=20,
+    )
+    assert "Losing BloodShattered" in strip_formatting(train_e_tips(patient))
+    headings = [h for h, _ in parse_tips(train_e_tips(patient))]
+    assert headings[:3] == ["Losing Blood", "Shattered Bone", "Broken Bone"]
+
+
+def test_very_quick_bleeding_keeps_its_description() -> None:
+    patient = patient_with("Broken Leg", BleedingLevel=5, SiteSanitation=20)
+    tips = dict(parse_tips(train_e_tips(patient)))
+    assert "Apply" in tips["Losing Blood very quickly"]
 
 
 def test_heart_stopped_picks_the_defibrillator() -> None:
@@ -195,3 +216,116 @@ def test_baseline_ignores_the_patient_beyond_tips() -> None:
 
     run_surgery(Settings("Broken Arm", "none", 100, None, seed=1), spy, max_turns=3)
     assert states and all(list(s)[0] == "skill_level" for s in states)
+
+
+# --- train-e-plus -----------------------------------------------------------
+
+from harness.baseline import train_e_plus_policy  # noqa: E402
+from harness.runner import Surgery  # noqa: E402
+
+
+def plus_pick(patient: Patient) -> dict[str, str]:
+    return train_e_plus_policy(observe(patient), patient)
+
+
+def test_plus_matches_the_baseline_whenever_train_e_has_an_answer() -> None:
+    differing = 0
+    for number, malady in enumerate(MALADY_NAMES):
+        surgery = Surgery(
+            Settings(malady, "none", 50, None, seed=number), baseline_policy
+        )
+        while not surgery.ended:
+            plain = baseline_policy(surgery.state, surgery.patient)
+            plus = train_e_plus_policy(surgery.state, surgery.patient)
+            if plus["rule"] == "TP3":  # the one override: Pins before closing
+                assert plain["tool"] == "stitches" and plus["tool"] == "pins"
+            elif plain["rule"] != "TE0":
+                assert plus == plain, (malady, surgery.turn)
+            differing += plus != plain
+            surgery.step()
+    assert differing > 0  # the patches do fire somewhere
+
+
+def test_plus_cuts_for_pins_when_train_e_stalls() -> None:
+    stalled = {
+        "IsUltrasoundUsed": True,
+        "ShatteredBoneCount": 1,
+        "BrokenBoneCount": 0,
+        "SiteSanitation": 20,
+        "BleedingLevel": 0,
+    }
+    asleep = patient_with("Broken Leg", SleepLevel=5, **stalled)
+    assert pick(asleep)["rule"] == "TE0"  # Train-E asks for Pins, which are unusable
+    assert plus_pick(asleep)["tool"] == "scalpel"
+
+    awake = patient_with("Broken Leg", SleepLevel=0, **stalled)
+    decision = plus_pick(awake)
+    assert decision["tool"] == "anesthetic"  # never the Scalpel on an awake patient
+
+
+def test_plus_treats_a_hot_patient_with_no_fever_text() -> None:
+    # Broken Arm needs no cut and no Fix It, so Train-E has nothing to say.
+    hot = {
+        "Temp": 104.6,
+        "Fever": 0.0,
+        "IsUltrasoundUsed": True,
+        "SiteSanitation": 20,
+        "BleedingLevel": 0,
+    }
+    patient = patient_with("Broken Arm", BrokenBoneCount=0, **hot)
+    state = observe(patient)
+    assert state["fever"] is None and state["temperature"] >= 101
+    assert pick(patient)["rule"] == "TE0"
+    assert plus_pick(patient) == {
+        "tool": "lab_kit",
+        "rule": "TP1",
+        "reason": "Hot, no fever shown: Train-E is silent",
+    }
+    patient.IsLabKitUsed = patient.LabWorked = True
+    patient.UpdatePatientUITexts()
+    assert plus_pick(patient)["tool"] == "antibiotics"
+
+
+def test_plus_does_not_repeat_antibiotics_right_after_a_dose() -> None:
+    patient = patient_with(
+        "Broken Arm",
+        BrokenBoneCount=0,
+        Temp=104.6,
+        Fever=-3.0,
+        IsUltrasoundUsed=True,
+        IsLabKitUsed=True,
+        LabWorked=True,
+        SiteSanitation=20,
+        ToolText="You used antibiotics to reduce the patient's infection.",
+    )
+    state = observe(patient)
+    assert "antibiotics" in state["usable_tools"]
+    decision = train_e_plus_policy(state, patient)
+    assert decision["tool"] != "antibiotics"
+
+
+def test_plus_never_picks_an_unusable_tool() -> None:
+    for number, malady in enumerate(MALADY_NAMES):
+        result = run_surgery(
+            Settings(malady, "none", 100, None, seed=number), train_e_plus_policy
+        )
+        assert result.illegal_moves == 0, malady
+
+
+def test_plus_pins_before_closing_the_incision() -> None:
+    open_wound = patient_with(
+        "Broken Leg",
+        SleepLevel=5,
+        Incisions=1,
+        IsUltrasoundUsed=True,
+        ShatteredBoneCount=1,
+        BrokenBoneCount=0,
+        BleedingLevel=0,
+        SiteSanitation=20,
+    )
+    assert pick(open_wound)["tool"] == "stitches"  # Train-E closes it first
+    assert plus_pick(open_wound) == {
+        "tool": "pins",
+        "rule": "TP3",
+        "reason": "Pin the bones before closing the incision",
+    }
