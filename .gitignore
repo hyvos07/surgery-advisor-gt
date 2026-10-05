@@ -1,0 +1,88 @@
+# .gitignore for the Surgery Advisor
+#
+# A .gitignore only stops untracked files from being added. It does not
+# remove files that are already committed, and it does not catch a secret
+# pasted into a tracked file. The pre-commit secret scan (see AGENTS.md,
+# "Secrets") covers those cases.
+
+# ---------------------------------------------------------------------------
+# Secrets and credentials. This project needs none; if one ever appears,
+# it goes in .env (ignored) and its name, never its value, in .env.example.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.env
+.envrc
+secrets/
+.secrets/
+*.secret
+*.secrets
+credentials*.json
+service-account*.json
+client_secret*.json
+token*.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.kdbx
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+.netrc
+.pypirc
+.npmrc
+.git-credentials
+
+# ---------------------------------------------------------------------------
+# Project output: benchmark reports and decision logs can be large and may
+# contain local paths.
+# ---------------------------------------------------------------------------
+reports/
+logs/
+*.jsonl
+scratch/
+
+# ---------------------------------------------------------------------------
+# Python and tooling
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ---------------------------------------------------------------------------
+# Personal agent and editor settings (shared ones like CLAUDE.md and
+# .claude/settings.json stay tracked)
+# ---------------------------------------------------------------------------
+CLAUDE.local.md
+.claude/settings.local.json
+.aider*
+.idea/
+.vscode/
+*.swp
+*~
+
+# ---------------------------------------------------------------------------
+# Operating system files
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
