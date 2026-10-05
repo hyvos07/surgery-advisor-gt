@@ -78,6 +78,17 @@ When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable
 
 "A cut is needed" requires a diagnosis. Without one, the advisor never anesthetizes or cuts.
 
+## Antiseptic modes
+
+`Config.antiseptic_mode` selects how freely the Antiseptic is used. The rule IDs do not change.
+
+| Mode | E7 Clean open site | P9 Clean before cutting | P13 Wait and fallback |
+| --- | --- | --- | --- |
+| `draft` (default) | As in the table above | As in the table above | Antiseptic |
+| `minimal` (owner's preference, under test) | Never fires | Only before the first cut, and only when the malady needs at least `antiseptic_min_incisions` incisions (default 5, Brain Tumor) | Sponge |
+
+The benchmark compares the two; the default changes only on the owner's decision.
+
 ## Legality check
 
 A decision is rejected, and the next rule is tried, when any of these is true:
@@ -101,14 +112,14 @@ The advisor remembers what the screen stops showing. Memory changes only when `l
 
 | Field | Set from | Used by |
 | --- | --- | --- |
-| `diagnosis` | Scan text after Ultrasound (or at start for Nose Job) | P1, every "cut needed" guard |
+| `diagnosis` | Scan text after Ultrasound (or at start for Nose Job). Set once and never changed: the scan text later switches to the malady's fix text and post-fix text, and two post-fix texts are shared by different maladies, so only the scan text or fix text identifies a malady | P1, every "cut needed" guard |
 | `incisions_needed` | Malady table, +1 for Tough Skin | P5, legality check |
 | `needs_fix`, `fixed` | Malady table; "You fixed the issue!" | P3, P6 |
 | `condition` | Condition text at start, or revealed by Ultrasound | Margins, E3, E6 |
 | `sleep_left` | Set to 9 (4 if Hyperactive) on "The patient is now asleep."; minus 1 per turn while the heart beats | Forecast, E4 |
 | `lab_kit_done` | "…have antibiotics at the ready." | E6, P2, P11 |
-| `fever_negative` | After a successful Antibiotics dose, the fever text is gone and temperature fell | E6, E7, P2, P9, P11 |
-| `prev_temperature`, `prev_state` | Last turn's state | P2, `fever_negative` |
+| `fever_negative` | After a successful Antibiotics dose, the fever text is gone and temperature fell. Cleared again if a fever word reappears or the temperature rises (a failed dose adds +1 fever, which can turn it positive) | E6, E7, P2, P9, P11 |
+| `prev_temperature`, `prev_state`, `temperature_delta` | The screen seen at the previous update, and the temperature change since then (`temperature_rising` when above 0) | P2, `fever_negative`, forecast |
 | `turn` | Count of decisions made | Logs |
 
 Confirmation texts live in one table in `src/advisor/memory.py`, copied from SurgE's `core/patient.py`.
