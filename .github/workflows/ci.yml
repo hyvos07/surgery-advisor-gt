@@ -1,0 +1,42 @@
+name: CI
+
+on: push
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+          fetch-depth: 0  # gitleaks scans the full history
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run mypy src/advisor
+
+      - name: Unit tests
+        run: uv run pytest
+
+      # The pre-commit hook only scans staged changes, so CI scans the history directly.
+      - name: Secret scan (gitleaks)
+        env:
+          GITLEAKS_VERSION: "8.30.0"  # keep in step with .pre-commit-config.yaml
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
+          ./gitleaks git --redact --verbose .
+
+  # TODO(M1): 1-run-per-cell smoke benchmark on main, once `surg bench` exists.
