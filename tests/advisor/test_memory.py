@@ -602,23 +602,67 @@ def test_fever_negative_after_a_dose_when_the_fever_text_goes_and_temperature_fa
     assert memory.fever_negative
 
 
-def test_fever_negative_is_sticky(know: Knowledge, make_state: MakeState) -> None:
+def test_fever_negative_stays_while_temperature_falls_or_holds_without_a_word(
+    know: Knowledge, make_state: MakeState
+) -> None:
     memory = memory_for(know)
     memory.update(make_state(temperature=104.0, fever="climbing"), CONFIG)
     decided(memory, Tool.ANTIBIOTICS)
     memory.update(make_state(temperature=102.0, last_tool_text=DOSED), CONFIG)
     assert memory.fever_negative
-    # A failed dose pushes the fever up and the temperature rises again; the
-    # advisor still treats the fever as negative until a screen proves otherwise.
+    memory.update(make_state(temperature=100.0), CONFIG)
+    assert memory.fever_negative
+    # Held flat at normal temperature: still negative.
+    memory.update(make_state(temperature=98.6), CONFIG)
+    memory.update(make_state(temperature=98.6), CONFIG)
+    assert memory.fever_negative
+
+
+def test_fever_negative_clears_when_the_fever_word_reappears(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know)
+    memory.update(make_state(temperature=104.0, fever="climbing"), CONFIG)
+    decided(memory, Tool.ANTIBIOTICS)
+    memory.update(make_state(temperature=102.0, last_tool_text=DOSED), CONFIG)
+    assert memory.fever_negative
+    # A failed dose adds fever; the word shows again even if the reading is flat.
     decided(memory, Tool.ANTIBIOTICS)
     memory.update(
         make_state(
-            temperature=102.5,
+            temperature=102.0,
             fever="slowly_rising",
             last_tool_text=f"{SKILL_FAIL_MARKER} 18%]: wrong medication",
         ),
         CONFIG,
     )
+    assert not memory.fever_negative
+
+
+def test_fever_negative_clears_when_the_temperature_rises(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know)
+    memory.update(make_state(temperature=104.0, fever="climbing"), CONFIG)
+    decided(memory, Tool.ANTIBIOTICS)
+    memory.update(make_state(temperature=102.0, last_tool_text=DOSED), CONFIG)
+    assert memory.fever_negative
+    # No fever word (below the display threshold), but the temperature went up.
+    memory.update(make_state(temperature=102.4), CONFIG)
+    assert not memory.fever_negative
+
+
+def test_fever_negative_can_return_after_another_fall(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know)
+    memory.update(make_state(temperature=104.0, fever="climbing"), CONFIG)
+    decided(memory, Tool.ANTIBIOTICS)
+    memory.update(make_state(temperature=102.0, last_tool_text=DOSED), CONFIG)
+    memory.update(make_state(temperature=102.4), CONFIG)
+    assert not memory.fever_negative
+    # A dose has been confirmed before, so a fall with no word proves it again.
+    memory.update(make_state(temperature=101.0), CONFIG)
     assert memory.fever_negative
 
 

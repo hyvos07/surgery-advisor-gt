@@ -16,6 +16,7 @@ surg = "cli:main"
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "hypothesis>=6.168.4",
     "mypy",
     "pre-commit",
     "pytest",

@@ -29,7 +29,7 @@ from advisor.knowledge import (
     Condition,
     Knowledge,
     Malady,
-    _normalize,
+    normalize_text,
 )
 from advisor.state import Decision, ScreenState, Status, Tool
 
@@ -112,11 +112,11 @@ class Memory:
         self._update_incisions_needed()
         self._update_tool_effects(confirmed, state)
         self._update_sleep(confirmed, state, config)
-        self._update_fever(state)
         if self.prev_temperature is None:
             self.temperature_delta = None
         else:
             self.temperature_delta = round(state.temperature - self.prev_temperature, 2)
+        self._update_fever(state)
         self.prev_temperature = state.temperature
         self.prev_state = state
         self.turn += 1
@@ -169,7 +169,8 @@ class Memory:
             self.diagnosis is not None
             and self.diagnosis.post_fix_text is not None
             and state.scan_text is not None
-            and _normalize(state.scan_text) == _normalize(self.diagnosis.post_fix_text)
+            and normalize_text(state.scan_text)
+            == normalize_text(self.diagnosis.post_fix_text)
         ):
             self.fixed = True
 
@@ -196,12 +197,16 @@ class Memory:
             self.sleep_left = max(self.sleep_left, SLEEP_UNCONSCIOUS_MIN)
 
     def _update_fever(self, state: ScreenState) -> None:
+        # A fever word, or a temperature that rose, means the fever is positive:
+        # a failed Antibiotics dose adds fever and can lift a negative one above 0.
+        if state.fever is not None or self.temperature_rising:
+            self.fever_negative = False
+            return
         # Negative fever sticks: once a dose has made the fever text vanish and the
         # temperature fall, the temperature keeps falling until 98.6 F.
         if (
             not self.fever_negative
             and self.antibiotics_dosed
-            and state.fever is None
             and self.prev_temperature is not None
             and state.temperature < self.prev_temperature
         ):

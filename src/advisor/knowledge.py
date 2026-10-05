@@ -35,7 +35,7 @@ CONDITION_IDS: dict[str, str] = {
 }
 
 
-def _normalize(text: str) -> str:
+def normalize_text(text: str) -> str:
     """Drop zero-width characters and collapse whitespace, as the observer does."""
     for ch in ("​", "‌", "‍", "﻿"):
         text = text.replace(ch, "")
@@ -75,13 +75,15 @@ class Knowledge:
         `post_fix_text` is deliberately not matched: it is not unique across
         maladies ("You excised the tumor!", "You cauterized it.").
         """
-        wanted = _normalize(text)
+        wanted = normalize_text(text)
         if not wanted:
             return None
         for malady in self.maladies:
-            if wanted == _normalize(malady.scan_text):
+            if wanted == normalize_text(malady.scan_text):
                 return malady
-            if malady.fix_text is not None and wanted == _normalize(malady.fix_text):
+            if malady.fix_text is not None and wanted == normalize_text(
+                malady.fix_text
+            ):
                 return malady
         return None
 
@@ -90,11 +92,11 @@ class Knowledge:
 
         The `none` condition has no visible text, so it is never returned.
         """
-        wanted = _normalize(text)
+        wanted = normalize_text(text)
         if not wanted:
             return None
         for condition in self.conditions:
-            if wanted == _normalize(condition.text):
+            if wanted == normalize_text(condition.text):
                 return condition
         return None
 
@@ -165,7 +167,7 @@ def _check_unique_scan_texts(maladies: tuple[Malady, ...], path: Path) -> None:
         for text in (malady.scan_text, malady.fix_text):
             if text is None:
                 continue
-            key = _normalize(text)
+            key = normalize_text(text)
             if key in seen and seen[key] != malady.name:
                 raise ValueError(
                     f"{path}: text {text!r} identifies both "
