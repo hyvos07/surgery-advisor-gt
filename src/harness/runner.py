@@ -3,6 +3,7 @@
 import copy
 import random
 import threading
+from collections import Counter
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -69,6 +70,7 @@ class Result:
     outcome: str
     turns: int
     tools_used: int
+    tool_counts: dict[str, int]
     skill_fails: int
     illegal_moves: int
     end_text: str
@@ -210,6 +212,7 @@ class Surgery:
             outcome=self.outcome,
             turns=self.turn,
             tools_used=len(self.applied),
+            tool_counts=dict(Counter(self.applied)),
             skill_fails=self.skill_fails,
             illegal_moves=self.illegal_moves,
             end_text=self.end_text,

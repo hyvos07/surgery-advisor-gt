@@ -4,7 +4,7 @@ import json
 import multiprocessing
 import os
 import time
-from collections import deque
+from collections import Counter, deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -67,6 +67,9 @@ def run_cell(job: tuple[str, Cell, int]) -> Report:
     policy = policy_by_name(policy_name)
     outcomes = dict.fromkeys(OUTCOMES, 0)
     tools_on_success = turns = illegal_moves = skill_fails = 0
+    fewest: int | None = None
+    tools_success: Counter[str] = Counter()
+    tools_all: Counter[str] = Counter()
     deaths = []
     for seed in range(runs):
         last_rules: deque[str] = deque(maxlen=3)
@@ -82,8 +85,13 @@ def run_cell(job: tuple[str, Cell, int]) -> Report:
         turns += result.turns
         illegal_moves += result.illegal_moves
         skill_fails += result.skill_fails
+        tools_all.update(result.tool_counts)
         if result.outcome == SUCCESS:
             tools_on_success += result.tools_used
+            tools_success.update(result.tool_counts)
+            fewest = (
+                result.tools_used if fewest is None else min(fewest, result.tools_used)
+            )
         elif result.outcome != TIMEOUT:
             deaths.append(
                 {
@@ -101,6 +109,9 @@ def run_cell(job: tuple[str, Cell, int]) -> Report:
         "runs": runs,
         "outcomes": outcomes,
         "tools_on_success": tools_on_success,
+        "min_tools_on_success": fewest,
+        "tool_counts_success": dict(tools_success),
+        "tool_counts_all": dict(tools_all),
         "turns": turns,
         "illegal_moves": illegal_moves,
         "skill_fails": skill_fails,
@@ -112,6 +123,12 @@ def _tally(cells: list[Report]) -> Report:
     runs = sum(c["runs"] for c in cells)
     outcomes = {o: sum(c["outcomes"][o] for c in cells) for o in OUTCOMES}
     tools = sum(c["tools_on_success"] for c in cells)
+    fewest = [c["min_tools_on_success"] for c in cells if c["min_tools_on_success"]]
+    by_tool_success: Counter[str] = Counter()
+    by_tool_all: Counter[str] = Counter()
+    for c in cells:
+        by_tool_success.update(c["tool_counts_success"])
+        by_tool_all.update(c["tool_counts_all"])
     return {
         "runs": runs,
         **outcomes,
@@ -119,6 +136,9 @@ def _tally(cells: list[Report]) -> Report:
         "avg_tools_per_success": tools / outcomes[SUCCESS]
         if outcomes[SUCCESS]
         else None,
+        "min_tools_on_success": min(fewest) if fewest else None,
+        "tool_counts_success": dict(by_tool_success),
+        "tool_counts_all": dict(by_tool_all),
         "illegal_moves": sum(c["illegal_moves"] for c in cells),
     }
 
@@ -258,27 +278,53 @@ def render_markdown(report: Report, comparison: Report | None = None) -> str:
             )
         )
         lines += ["", f"## {title}", ""]
-        header = "| | Runs | Success | Avoidable | Unlucky | Timeout | Tools/success |"
-        rule = "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"
+        header = (
+            "| | Runs | Success | Avoidable | Unlucky | Timeout "
+            "| Tools/success | Fewest |"
+        )
+        rule = "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
         if deltas:
-            header += " Success change | Avoidable change |"
-            rule += " ---: | ---: |"
+            header += " Success change | Avoidable change | Tools change |"
+            rule += " ---: | ---: | ---: |"
         lines += [header, rule]
         for key, row in rows.items():
             tools = row["avg_tools_per_success"]
             line = (
                 f"| {key} | {row['runs']} | {_pct(row['success_rate'])} "
                 f"| {row[AVOIDABLE_DEATH]} | {row[UNLUCKY_DEATH]} | {row[TIMEOUT]} "
-                f"| {'' if tools is None else f'{tools:.1f}'} |"
+                f"| {'' if tools is None else f'{tools:.1f}'} "
+                f"| {row['min_tools_on_success'] or ''} |"
             )
             if deltas and key in deltas:
                 d = deltas[key]
                 line += (
                     f" {_signed(d['success_rate'], 100, ' pts')} "
-                    f"| {d[AVOIDABLE_DEATH]:+d} |"
+                    f"| {d[AVOIDABLE_DEATH]:+d} "
+                    f"| {_signed(d['avg_tools_per_success'])} |"
                 )
             lines.append(line)
+    lines += _tools_section(summary["overall"])
     return "\n".join(lines) + "\n"
+
+
+def _tools_section(overall: Report) -> list[str]:
+    """Which tools the surgeries used. Fewer per success is better."""
+    wins = overall[SUCCESS]
+    lines = [
+        "",
+        "## Tools used",
+        "",
+        "Per successful surgery, and in total across every surgery (the gap is "
+        "tools spent on surgeries that did not succeed).",
+        "",
+        "| Tool | Per success | Total, all surgeries |",
+        "| --- | ---: | ---: |",
+    ]
+    by_success, by_all = overall["tool_counts_success"], overall["tool_counts_all"]
+    for tool in sorted(by_all, key=lambda t: -by_all[t]):
+        per = by_success.get(tool, 0) / wins if wins else 0.0
+        lines.append(f"| {tool} | {per:.2f} | {by_all[tool]} |")
+    return lines
 
 
 def write_report(

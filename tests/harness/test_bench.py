@@ -146,3 +146,28 @@ def test_cli_bench_refuses_the_advisor_until_m2(
 def test_cli_stubs_still_exit_non_zero(capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["next", "state.json"]) == 1
     assert "(M2)" in capsys.readouterr().err
+
+
+def test_tools_used_are_counted_per_tool_and_fewest_is_kept() -> None:
+    report = run_grid("baseline", 6, SMALL, workers=1)
+    for cell in report["cells"]:
+        wins = cell["outcomes"]["success"]
+        assert sum(cell["tool_counts_success"].values()) == cell["tools_on_success"]
+        assert sum(cell["tool_counts_all"].values()) >= cell["tools_on_success"]
+        if wins:
+            assert 0 < cell["min_tools_on_success"] <= cell["tools_on_success"] / wins
+        else:
+            assert cell["min_tools_on_success"] is None
+    overall = report["summary"]["overall"]
+    assert sum(overall["tool_counts_success"].values()) == sum(
+        c["tools_on_success"] for c in report["cells"]
+    )
+    assert overall["min_tools_on_success"] == min(
+        c["min_tools_on_success"] for c in report["cells"] if c["min_tools_on_success"]
+    )
+
+
+def test_markdown_lists_tool_usage_and_the_fewest_column() -> None:
+    text = render_markdown(run_grid("baseline", 4, SMALL, workers=1))
+    assert "| Fewest |" in text and "## Tools used" in text
+    assert "| Tool | Per success | Total, all surgeries |" in text
