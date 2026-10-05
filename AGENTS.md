@@ -127,7 +127,7 @@ Things in SurgE that will bite you. The harness handles each one; keep it that w
 
 | Gotcha | What to do |
 | --- | --- |
-| `ui/` and `cogs/` import `discord` | Never import them. `observe.py` re-implements the tool-tray conditions from `ui/surgery_view.py` (`_TOOL_LAYOUT`); keep the two in sync |
+| `ui/` and `cogs/` import `discord` | Never import them. `observe.py` derives the tool-tray conditions from `ui/surgery_view.py` (`_TOOL_LAYOUT`) using on-screen text ([D10](docs/decisions.md#d10-usable_tools-derived-from-on-screen-text-plus-three-tray-flags)); `tests/harness/test_observe.py` holds a copy of `_TOOL_LAYOUT` and fails if the two drift apart. `IsBrainWorms` is never set in SurgE, so that clause of the Fix It condition is dead |
 | SurgE imports `core.*` as top-level packages | `harness/surge.py` adds `vendor/SurgE` to `sys.path` before importing |
 | A new `Patient` has an empty status, so Scalpel on turn 0 wouldn't kill | Start every surgery like `cogs/surgery_cog.py` does: `TextManager.setTextManager(False)`, set `PatientStatus` to the Awake text, set the "not been diagnosed" scan text if empty, then call `UpdatePatientUITexts()` |
 | `TextManager` mode is global, and status comparisons use the formatted text | Set plain-text mode once at start-up and never change it mid-run |

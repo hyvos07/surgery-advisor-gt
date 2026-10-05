@@ -2,7 +2,7 @@
 
 The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the full benchmark grid with zero avoidable deaths. Requirements are in [PRD.md](PRD.md); this file is the order of work.
 
-**Current status:** M0 done. Package layout, `surg` stubs, SurgE submodule, smoke tests, CI and pre-commit hooks are in place. Next up is M1.
+**Current status:** M0 done; M1 started (observation adapter done). Package layout, `surg` stubs, SurgE submodule, smoke tests, CI and pre-commit hooks are in place. Next up in M1: the runner.
 
 ## Milestones
 
@@ -32,11 +32,11 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 
 **Observation adapter** (`src/harness/observe.py`)
 
-- [ ] Start a surgery the way SurgE's Discord cog does: plain-text mode, status set to Awake, the "not been diagnosed" scan text, then a UI text update
-- [ ] Strip SurgE's markdown formatting and map each on-screen text to the screen-state enums in PRD section 8
-- [ ] Compute `usable_tools` with the same conditions as SurgE's tool tray (`ui/surgery_view.py`, which can't be imported because it needs Discord)
-- [ ] Never read hidden numbers (exact pulse, sleep level, dirt, sanitation, fever value)
-- [ ] Unit tests: one SurgE state per enum value, checked against the expected JSON
+- [x] Start a surgery the way SurgE's Discord cog does: plain-text mode, status set to Awake, the "not been diagnosed" scan text, then a UI text update
+- [x] Strip SurgE's markdown formatting and map each on-screen text to the screen-state enums in PRD section 8
+- [x] Compute `usable_tools` that match SurgE's tool tray (`ui/surgery_view.py`, which can't be imported because it needs Discord), derived from on-screen text ([D10](docs/decisions.md))
+- [x] Never read hidden numbers (exact pulse, sleep level, dirt, sanitation, fever value)
+- [x] Unit tests: one SurgE state per enum value, checked against the expected JSON
 
 **Runner** (`src/harness/runner.py`)
 
@@ -72,12 +72,14 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 - [ ] `src/advisor/engine.py`: `decide(state, memory) -> Decision` with the legality check
 - [ ] Unit tests: one hand-written state per rule that proves it fires; property test that Scalpel-while-Awake and Anesthetic-while-Unconscious are never returned for any generated state
 - [ ] Swap the viewer and `surg play` to the advisor policy
+- [ ] Owner preference to test: use Antiseptic as little as possible, only at the start of long surgeries such as Brain Tumor. Sponge is unaffected (it is forced at `cant_see`). Add it as a `config.py` margin, propose it before editing `rules.py`, and compare with the benchmark
 
 ## M3: First benchmark
 
 - [ ] Full grid for advisor and baseline with the same seeds
 - [ ] Report: success rate per malady, condition and skill level, side by side
 - [ ] For every death, the rules that fired in the last 3 turns; rank rules by how often they appear
+- [ ] Deeper death classification: look back several turns, not just the fatal one, to find mistakes made earlier (M1 only checks the fatal turn)
 - [ ] Separate modifier run: 27 maladies × 4 modifiers × skill 0 and 100 × 50 runs
 - [ ] Each death in the report links to the viewer with its settings and seed
 - [ ] Update the targets in PRD section 10 from the real numbers

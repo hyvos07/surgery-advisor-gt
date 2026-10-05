@@ -13,6 +13,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D7 | 2026-09-23 | Step-by-step web viewer as a test tool | Accepted |
 | D8 | 2026-10-05 | `surge` threshold profile as the default | Provisional (PRD Q1) |
 | D9 | 2026-10-05 | Python 3.12, uv, pytest, ruff, mypy, FastAPI | Accepted |
+| D10 | 2026-10-05 | `usable_tools` derived from on-screen text, plus three tray flags | Accepted |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -76,3 +77,10 @@ Choices someone might later question, with the reason and what would reopen them
 - **Decision:** Python 3.12+ managed with uv; pytest for tests; ruff for lint and format; mypy strict on the advisor; FastAPI and uvicorn for the viewer only. The advisor itself uses only the standard library.
 - **Why:** one language end to end, with no glue between the advisor and SurgE. Keeping the advisor dependency-free keeps it easy to reuse.
 - **Revisit if:** –
+
+## D10. `usable_tools` derived from on-screen text, plus three tray flags
+
+- **Context:** SurgE's tool tray decides which buttons are enabled from hidden values: `HeartDamage > 0` for the Defibrillator and `SiteDirtyness < 10` for "site workable". The real game will not give the advisor either number (D5), and AGENTS hard rule 2 forbids reading them.
+- **Decision:** `observe.py` derives `usable_tools` from the screen. Defibrillator is the "Heart Stopped!" status, a workable site is the absence of "You can't see what you are doing!", Pins and Clamp need an open incision, Ultrasound needs no diagnosis. Fix It, Lab Kit and Antibiotics have no text, so `observe.py` reads SurgE's `IsFixable`, `IsLabKitUsed` and `LabWorked` flags, which are the tray's button state.
+- **Why:** the advisor sees the same things on the real game, where the tray itself is on screen. `tests/harness/test_observe.py` checks the derived list against a copy of SurgE's tray conditions on 300 random surgeries, and scans `observe.py` for the hidden names.
+- **Revisit if:** SurgE changes its tray (a bump of the pin), or M5 shows the real tray can't be read reliably.
