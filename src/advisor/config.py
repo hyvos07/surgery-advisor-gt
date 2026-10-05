@@ -109,14 +109,13 @@ PROFILES: dict[str, Profile] = {SURGE.name: SURGE, WIKI.name: WIKI}
 class Margins:
     """Safety margins that depend on the fail rate."""
 
-    dirt_guard: int  # E2: bleeding + open incisions at hard_to_see
     fever_crisis_f: float  # E6: crisis temperature
     pulse_turns_ahead: int  # forecast turns used for the pulse
 
 
-_MARGINS_LOW = Margins(dirt_guard=4, fever_crisis_f=108.0, pulse_turns_ahead=1)
-_MARGINS_MID = Margins(dirt_guard=3, fever_crisis_f=107.0, pulse_turns_ahead=1)
-_MARGINS_HIGH = Margins(dirt_guard=2, fever_crisis_f=106.0, pulse_turns_ahead=2)
+_MARGINS_LOW = Margins(fever_crisis_f=108.0, pulse_turns_ahead=1)
+_MARGINS_MID = Margins(fever_crisis_f=107.0, pulse_turns_ahead=1)
+_MARGINS_HIGH = Margins(fever_crisis_f=106.0, pulse_turns_ahead=2)
 
 
 def fail_rate(skill: int, modifier: str | None) -> int:

@@ -61,10 +61,15 @@ def _broken(s: ScreenState) -> bool:
 
 
 def _cut_needed(s: ScreenState, m: Memory) -> bool:
-    """True if more incisions are needed. Always False without a diagnosis."""
+    """True if another cut is needed. Always False without a diagnosis.
+
+    Cuts are for Fix It (until it is done) and for reaching shattered bones. Once the
+    malady is fixed, incisions below the count are just Stitches closing the site.
+    """
     if m.diagnosis is None or m.incisions_needed is None:
         return False
-    return s.incisions < m.incisions_needed or (_shattered(s) and not s.incision_open)
+    for_fix = m.needs_fix and not m.fixed and s.incisions < m.incisions_needed
+    return for_fix or (_shattered(s) and not s.incision_open)
 
 
 def _fixed(m: Memory) -> bool:
@@ -104,13 +109,6 @@ def rule_e2_clear_view(
         return Decision(
             Tool.SPONGE, "E2", "The site can't be seen; only the Sponge works"
         )
-    if s.visibility is Visibility.HARD_TO_SEE:
-        # Dirt rises by bleeding plus open incisions each turn.
-        dirt_rise = c.bleeding_upper(s.bleeding) + s.incisions
-        if dirt_rise >= c.margins.dirt_guard:
-            return Decision(
-                Tool.SPONGE, "E2", "Site is hard to see and bleeding and cuts add dirt"
-            )
     return None
 
 

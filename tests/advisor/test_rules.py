@@ -20,8 +20,8 @@ from advisor.state import Decision, ScreenState, Tool
 
 MakeState = Callable[..., ScreenState]
 
-# Skill 50 has an 18% fail rate: dirt guard 3, crisis temperature 107 F, one pulse
-# turn ahead. The surge profile needs a temperature under 101 F.
+# Skill 50 has an 18% fail rate: crisis temperature 107 F, one pulse turn ahead.
+# The surge profile needs a temperature under 101 F.
 CONFIG = Config.for_patient(50, None)
 MINIMAL = Config.for_patient(50, None, antiseptic_mode="minimal")
 WIKI = Config.for_patient(50, None, profile="wiki")
@@ -107,47 +107,36 @@ def test_e2_sponges_when_the_site_cant_be_seen(
     silent(rules.rule_e2_clear_view, make_state(visibility="clear"), memory)
 
 
-def test_e2_sponges_a_hard_to_see_site_at_the_dirt_guard(
+def test_e2_ignores_a_hard_to_see_site_even_with_heavy_dirt_sources(
     know: Knowledge, make_state: MakeState
 ) -> None:
     memory = memory_for(know)
-    # Guard is 3 here: bleeding `losing` (up to 3) plus no incisions reaches it.
-    fires(
+    # E2 no longer sponges pre-emptively: hard_to_see with heavy bleeding and open
+    # incisions is left to the other rules (P12 tidies it later).
+    state = make_state(visibility="hard_to_see", bleeding="very_quickly", incisions=2)
+    for config in (
+        CONFIG,
+        Config.for_patient(0, None),
+        Config.for_patient(100, None),
+    ):
+        silent(rules.rule_e2_clear_view, state, memory, config)
+    silent(
         rules.rule_e2_clear_view,
-        "E2",
-        Tool.SPONGE,
         make_state(visibility="hard_to_see", bleeding="losing"),
         memory,
     )
-    # One open incision and slow bleeding add up to 2, under the guard.
-    silent(
-        rules.rule_e2_clear_view,
-        make_state(visibility="hard_to_see", bleeding="slowly", incisions=1),
-        memory,
-    )
-    # The same dirt rise on a clear site waits.
-    silent(
-        rules.rule_e2_clear_view,
-        make_state(visibility="clear", bleeding="losing"),
-        memory,
-    )
 
 
-def test_e2_guard_depends_on_the_fail_rate(
+def test_e2_fires_on_cant_see_with_heavy_bleeding_and_open_incisions(
     know: Knowledge, make_state: MakeState
 ) -> None:
-    memory = memory_for(know)
-    state = make_state(visibility="hard_to_see", bleeding="slowly", incisions=1)
-    # Skill 0 (30% fail) has a guard of 2, so 1 + 1 reaches it; skill 100 needs 4.
     fires(
         rules.rule_e2_clear_view,
         "E2",
         Tool.SPONGE,
-        state,
-        memory,
-        Config.for_patient(0, None),
+        make_state(visibility="cant_see", bleeding="very_quickly", incisions=2),
+        memory_for(know),
     )
-    silent(rules.rule_e2_clear_view, state, memory, Config.for_patient(100, None))
 
 
 def test_e3_transfuses_when_the_pulse_may_hit_extremely_weak(
@@ -494,6 +483,74 @@ def test_p5_cuts_for_shattered_bones_when_no_incision_is_open(
     silent(
         rules.rule_p5_cut,
         dataclasses.replace(state, bones=None),
+        memory,
+    )
+
+
+def test_p5_cuts_an_unfixed_malady_below_the_needed_count(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    fires(
+        rules.rule_p5_cut,
+        "P5",
+        Tool.SCALPEL,
+        make_state(status="unconscious", incisions=1),
+        memory_for(know, "Heart Attack"),
+    )
+
+
+def test_p5_does_not_cut_a_fixed_malady_and_p6_closes_it(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # Heart Attack needs 2 incisions; Fix It is done and Stitches took one away.
+    memory = memory_for(know, "Heart Attack", fixed=True)
+    state = make_state(status="unconscious", incisions=1)
+    silent(rules.rule_p5_cut, state, memory)
+    fires(rules.rule_p6_close, "P6", Tool.STITCHES, state, memory)
+    # With no incision left there is nothing to cut either.
+    silent(rules.rule_p5_cut, make_state(status="unconscious", incisions=0), memory)
+
+
+def test_p5_does_not_cut_a_malady_that_needs_no_fix_it(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # Broken Leg: diagnosed, no shattered bones, nothing open.
+    silent(
+        rules.rule_p5_cut,
+        make_state(
+            status="unconscious", incisions=0, bones={"broken": 1, "shattered": 0}
+        ),
+        memory_for(know, "Broken Leg", incisions_needed=1),
+    )
+
+
+def test_p5_cuts_a_sleeping_broken_leg_with_a_shattered_bone(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    fires(
+        rules.rule_p5_cut,
+        "P5",
+        Tool.SCALPEL,
+        make_state(
+            status="unconscious", incisions=0, bones={"broken": 1, "shattered": 1}
+        ),
+        memory_for(know, "Broken Leg"),
+    )
+
+
+def test_a_fixed_malady_is_not_prepared_for_another_cut(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # P9 and P10 share the cut-needed guard with P5.
+    memory = memory_for(know, "Heart Attack", fixed=True)
+    silent(
+        rules.rule_p9_clean_before_cutting,
+        make_state(site="unclean", incisions=1),
+        memory,
+    )
+    silent(
+        rules.rule_p10_prep_for_cutting,
+        make_state(status="awake", incisions=1),
         memory,
     )
 

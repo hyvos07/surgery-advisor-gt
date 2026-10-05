@@ -50,9 +50,9 @@ def test_fail_rate_rejects_bad_input() -> None:
 
 
 def test_margin_bands_at_their_edges() -> None:
-    low = Margins(dirt_guard=4, fever_crisis_f=108.0, pulse_turns_ahead=1)
-    mid = Margins(dirt_guard=3, fever_crisis_f=107.0, pulse_turns_ahead=1)
-    high = Margins(dirt_guard=2, fever_crisis_f=106.0, pulse_turns_ahead=2)
+    low = Margins(fever_crisis_f=108.0, pulse_turns_ahead=1)
+    mid = Margins(fever_crisis_f=107.0, pulse_turns_ahead=1)
+    high = Margins(fever_crisis_f=106.0, pulse_turns_ahead=2)
     assert margins_for(0) == low
     assert margins_for(9) == low
     assert margins_for(10) == mid
@@ -82,9 +82,9 @@ def test_for_patient_defaults() -> None:
 
 def test_for_patient_picks_band_from_fail_rate_not_skill() -> None:
     # Skill 100 alone is 5% (low band); skill 0 with a Stethoscope is 15% (mid).
-    assert Config.for_patient(100, None).margins.dirt_guard == 4
-    assert Config.for_patient(0, "stethoscope").margins.dirt_guard == 3
-    assert Config.for_patient(0, None).margins.dirt_guard == 2
+    assert Config.for_patient(100, None).margins.fever_crisis_f == 108.0
+    assert Config.for_patient(0, "stethoscope").margins.fever_crisis_f == 107.0
+    assert Config.for_patient(0, None).margins.fever_crisis_f == 106.0
     assert Config.for_patient(100, "exquisite_bone_saw").fail_rate == 2
 
 

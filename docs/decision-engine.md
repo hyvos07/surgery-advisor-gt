@@ -49,14 +49,14 @@ First draft, in priority order. The benchmark will reorder and tune them. IDs ar
 | ID | Name | Fires when | Tool |
 | --- | --- | --- | --- |
 | E1 | Revive | Status is `heart_stopped` | Defibrillator |
-| E2 | Clear view | Visibility is `cant_see`, or `hard_to_see` while bleeding + open incisions is at or above the dirt guard | Sponge |
+| E2 | Clear view | Visibility is `cant_see` | Sponge |
 | E3 | Save pulse | Worst-case forecast pulse for next turn is `extremely_weak` (see [Forecast](#forecast)) | Transfusion |
 | E4 | Keep asleep | An incision is open and status is `awake` or `coming_to` | Anesthetic |
 | E5 | Stop heavy bleeding | Bleeding is `losing` or `very_quickly` and an incision is open | Clamp |
 | E6 | Fever crisis | Fever is `climbing_fast`, or forecast temperature reaches the crisis threshold within 2 turns | Lab Kit if not done, else Antibiotics |
 | E7 | Clean open site | Site is not `clean`, an incision is open, and the fever is not yet known to be negative | Antiseptic |
 
-When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable, so E2's Sponge fires first. That leaves exactly one Defibrillator try; at low skill the dirt guard keeps this from happening.
+When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable, so E2's Sponge fires first. That leaves exactly one Defibrillator try. E2 only sponges once the site can't be seen (there is no earlier, pre-emptive Sponge), so a heart that stops while the site can't be seen gets just that one try.
 
 ### Phase rules
 
@@ -66,7 +66,7 @@ When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable
 | P2 | Break fever | Fever is positive (fever text shown, or temperature rose since last turn) and not yet known to be negative | Lab Kit if not done, else Antibiotics |
 | P3 | Fix | Fix It is usable | Fix It |
 | P4 | Pin | Shattered bones and an incision open | Pins |
-| P5 | Cut | A cut is needed (incisions below the needed count, or shattered bones with no incision open) and status is `unconscious` or `coming_to` | Scalpel |
+| P5 | Cut | A cut is needed (see below) and status is `unconscious` or `coming_to` | Scalpel |
 | P6 | Close | Incision open, malady fixed (or no Fix It needed), no shattered bones | Stitches |
 | P7 | Splint | Diagnosed, broken bones, no incision open | Splint |
 | P8 | Surface bleeding | Bleeding, no incision open | Stitches |
@@ -76,7 +76,12 @@ When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable
 | P12 | Tidy | Visibility is `hard_to_see` | Sponge |
 | P13 | Wait | Nothing else fired (for example, waiting for a falling temperature) | Antiseptic |
 
-"A cut is needed" requires a diagnosis. Without one, the advisor never anesthetizes or cuts.
+"A cut is needed" requires a diagnosis. Without one, the advisor never anesthetizes or cuts. With a diagnosis, a cut is needed in either of two cases:
+
+- the malady needs Fix It, is not fixed yet, and incisions are below the needed count; or
+- shattered bones are shown and no incision is open.
+
+A malady that needs no Fix It (for example Broken Leg) is cut only to reach shattered bones for Pins. A fixed malady is never cut again: after Fix It, incisions below the count are only Stitches closing the site.
 
 ## Antiseptic modes
 
@@ -155,7 +160,6 @@ Margins depend on the fail rate, not the skill level, because modifiers change t
 
 | Margin | Fail rate under 10% | 10–19% | 20% and above |
 | --- | --- | --- | --- |
-| Dirt guard (bleeding + open incisions, at `hard_to_see`) | 4 | 3 | 2 |
 | Fever crisis temperature (°F) | 108 | 107 | 106 |
 | Pulse forecast turns ahead | 1 | 1 | 2 |
 
