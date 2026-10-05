@@ -5,18 +5,51 @@ import json
 import sys
 from pathlib import Path
 
-POLICY_CHOICES = ["baseline", "train-e-plus", "advisor"]
+POLICY_CHOICES = ["advisor", "advisor-min-antiseptic", "baseline", "train-e-plus"]
 
-# Subcommands not built yet -> (help text, milestone that implements it).
-_STUBS = {
-    "next": ("Print the decision for one screen-state JSON file", "M2"),
-}
+
+def _next(args: argparse.Namespace) -> int:
+    # Only the advisor is needed here, so SurgE is never loaded.
+    from advisor import knowledge
+    from advisor.config import Config
+    from advisor.engine import decide
+    from advisor.memory import Memory
+    from advisor.state import ScreenState
+
+    try:
+        text = Path(args.state).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        print(f"surg next: cannot read {args.state}: {error}", file=sys.stderr)
+        return 1
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError as error:
+        print(f"surg next: {args.state} is not valid JSON: {error}", file=sys.stderr)
+        return 1
+    try:
+        state = ScreenState.from_dict(raw)
+        config = Config.for_patient(
+            state.skill_level, state.modifier.value if state.modifier else None
+        )
+    except ValueError as error:
+        print(f"surg next: invalid screen state: {error}", file=sys.stderr)
+        return 1
+
+    # One state has no history, so memory starts empty.
+    decision = decide(state, Memory.new(knowledge.load()), config)
+    print(json.dumps(decision.to_dict(), indent=2))
+    return 0
 
 
 def _bench(args: argparse.Namespace) -> int:
-    # Imported here so `surg --help` and the stubs don't load SurgE.
+    # Imported here so `surg --help` and `surg next` don't load SurgE.
     from harness import bench
 
+    try:
+        grid = bench.grid_from_options(args.skills, args.modifiers)
+    except ValueError as error:
+        print(f"surg bench: {error}", file=sys.stderr)
+        return 1
     saved = None
     if args.compare:
         saved = json.loads(Path(args.compare).read_text(encoding="utf-8"))
@@ -27,10 +60,10 @@ def _bench(args: argparse.Namespace) -> int:
 
     try:
         report = bench.run_grid(
-            args.policy, args.runs, workers=args.workers, progress=progress
+            args.policy, args.runs, grid, workers=args.workers, progress=progress
         )
         comparison = bench.compare_reports(report, saved) if saved else None
-    except (NotImplementedError, ValueError) as error:
+    except ValueError as error:
         print(f"surg bench: {error}", file=sys.stderr)
         return 1
 
@@ -76,7 +109,7 @@ def _play(args: argparse.Namespace) -> int:
             args.malady, args.condition, args.skill, args.modifier, args.seed
         )
         surgery = Surgery(settings, policy_by_name(args.policy), args.policy)
-    except (NotImplementedError, ValueError) as error:
+    except ValueError as error:
         print(f"surg play: {error}", file=sys.stderr)
         return 1
 
@@ -120,19 +153,24 @@ def _web(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="surg", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    for name, (help_text, _) in _STUBS.items():
-        sub.add_parser(name, help=help_text)
+    nxt = sub.add_parser("next", help="Print the decision for one screen-state file")
+    nxt.add_argument("state", metavar="STATE.json", help="screen state (PRD section 8)")
 
     bench = sub.add_parser("bench", help="Run the benchmark grid and write a report")
     bench.add_argument("--runs", type=int, default=200, help="seeded runs per cell")
+    bench.add_argument("--policy", choices=POLICY_CHOICES, default="advisor")
     bench.add_argument(
-        "--policy",
-        choices=POLICY_CHOICES,
-        default="baseline",
-        help="policy to score (advisor arrives in M2)",
+        "--skills",
+        default="0,25,50,75,100",
+        help="comma list of skill levels, 0 to 100 (default: %(default)s)",
+    )
+    bench.add_argument(
+        "--modifiers",
+        default="none",
+        help="comma list of modifier ids, or none (default: %(default)s)",
     )
     bench.add_argument("--compare", metavar="REPORT.json", help="saved report")
     bench.add_argument("--out", metavar="BASE", help="write BASE.json and BASE.md")
@@ -144,23 +182,18 @@ def main(argv: list[str] | None = None) -> int:
     play.add_argument("--skill", type=int, help="0 to 100")
     play.add_argument("--modifier", help="stethoscope, tea, ...")
     play.add_argument("--seed", type=int, help="same seed, same surgery")
-    play.add_argument("--policy", choices=POLICY_CHOICES, default="baseline")
+    play.add_argument("--policy", choices=POLICY_CHOICES, default="advisor")
     play.add_argument("--log", metavar="FILE.jsonl", help="write each turn as JSON")
 
     web = sub.add_parser("web", help="Start the web viewer on http://127.0.0.1:8000")
     web.add_argument("--port", type=int, default=8000)
 
-    # The stubs accept any options, so the documented commands parse until built.
-    ns, extra = parser.parse_known_args(argv)
-    if ns.command in _STUBS:
-        print(
-            f"surg {ns.command}: not implemented yet ({_STUBS[ns.command][1]})",
-            file=sys.stderr,
-        )
-        return 1
-    if extra:
-        parser.error(f"unrecognized arguments: {' '.join(extra)}")
-    handlers = {"play": _play, "bench": _bench, "web": _web}
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    ns = build_parser().parse_args(argv)
+    handlers = {"next": _next, "play": _play, "bench": _bench, "web": _web}
     return handlers[ns.command](ns)
 
 

@@ -11,6 +11,7 @@ from harness.bench import (
     Grid,
     compare_reports,
     full_grid,
+    grid_from_options,
     render_markdown,
     run_grid,
     write_report,
@@ -63,9 +64,60 @@ def test_summary_groups_by_skill_condition_and_malady() -> None:
     assert set(summary["malady"]) == {"Broken Arm", "Heart Attack"}
 
 
-def test_unfinished_advisor_policy_is_refused() -> None:
-    with pytest.raises(NotImplementedError):
-        run_grid("advisor", 1, SMALL, workers=1)
+def test_unknown_policy_is_refused() -> None:
+    with pytest.raises(ValueError, match="advisor-min-antiseptic"):
+        run_grid("magic", 1, SMALL, workers=1)
+
+
+def test_the_advisor_makes_no_illegal_move_on_a_small_grid() -> None:
+    grid = Grid(
+        ("Broken Arm", "Heart Attack", "Brain Tumor"),
+        ("none", "tough_skin", "hemophiliac"),
+        (0, 100),
+        (None, "exquisite_bone_saw"),
+    )
+    for name in ("advisor", "advisor-min-antiseptic"):
+        report = run_grid(name, 3, grid, workers=1)
+        assert len(report["cells"]) == 36
+        assert report["summary"]["overall"]["runs"] == 108
+        assert report["summary"]["overall"]["illegal_moves"] == 0, name
+        assert all(c["illegal_moves"] == 0 for c in report["cells"]), name
+
+
+def test_grid_options_default_to_the_full_grid() -> None:
+    assert grid_from_options() == full_grid()
+
+
+def test_owners_setup_is_a_27_by_6_by_1_by_1_grid() -> None:
+    grid = grid_from_options("100", "exquisite_bone_saw")
+    assert (len(grid.maladies), len(grid.conditions)) == (27, 6)
+    assert grid.skills == (100,) and grid.modifiers == ("exquisite_bone_saw",)
+    assert len(grid.cells()) == 162
+
+
+def test_grid_options_take_lists_and_none() -> None:
+    grid = grid_from_options("0, 100", "none,tea")
+    assert grid.skills == (0, 100) and grid.modifiers == (None, "tea")
+
+
+@pytest.mark.parametrize(
+    ("skills", "modifiers", "message"),
+    [
+        ("101", "none", "0 to 100"),
+        ("-1", "none", "0 to 100"),
+        ("fifty", "none", "whole numbers"),
+        ("0,,100", "none", "whole numbers"),
+        ("50,50", "none", "twice"),
+        ("0", "magic", "unknown modifier 'magic'"),
+        ("0", "", "unknown modifier"),
+        ("0", "tea,tea", "twice"),
+    ],
+)
+def test_bad_grid_options_say_what_is_wrong(
+    skills: str, modifiers: str, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        grid_from_options(skills, modifiers)
 
 
 def test_compare_against_itself_shows_no_change() -> None:
@@ -100,8 +152,22 @@ def test_cli_bench_writes_a_report_and_compares(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     base = tmp_path / "baseline"
-    # The CLI always uses the full grid, so keep it to one run per cell.
-    code = cli.main(["bench", "--runs", "1", "--out", str(base), "--workers", "4"])
+    # Full malady and condition grid at one skill level, one run per cell.
+    code = cli.main(
+        [
+            "bench",
+            "--policy",
+            "baseline",
+            "--skills",
+            "100",
+            "--runs",
+            "1",
+            "--out",
+            str(base),
+            "--workers",
+            "4",
+        ]
+    )
     assert code == 0
     assert (tmp_path / "baseline.json").is_file() and (
         tmp_path / "baseline.md"
@@ -109,6 +175,10 @@ def test_cli_bench_writes_a_report_and_compares(
     second = cli.main(
         [
             "bench",
+            "--policy",
+            "baseline",
+            "--skills",
+            "100",
             "--runs",
             "1",
             "--out",
@@ -121,31 +191,78 @@ def test_cli_bench_writes_a_report_and_compares(
     )
     assert second == 0
     assert "Success change" in (tmp_path / "again.md").read_text(encoding="utf-8")
-    refused = cli.main(
+    capsys.readouterr()
+    for other in (
+        ["--runs", "2", "--skills", "100"],
+        ["--runs", "1", "--skills", "0,100"],
+        ["--runs", "1", "--skills", "100", "--modifiers", "exquisite_bone_saw"],
+    ):
+        refused = cli.main(
+            [
+                "bench",
+                "--policy",
+                "baseline",
+                *other,
+                "--compare",
+                str(base) + ".json",
+                "--out",
+                str(tmp_path / "x"),
+            ]
+        )
+        assert refused == 1, other
+        assert "cannot compare" in capsys.readouterr().err
+
+
+def test_cli_bench_builds_the_owners_grid_from_the_options(tmp_path: Path) -> None:
+    base = tmp_path / "owner"
+    code = cli.main(
         [
             "bench",
+            "--policy",
+            "baseline",
+            "--skills",
+            "100",
+            "--modifiers",
+            "exquisite_bone_saw",
             "--runs",
-            "2",
-            "--compare",
-            str(base) + ".json",
+            "1",
             "--out",
-            str(tmp_path / "x"),
+            str(base),
+            "--workers",
+            "4",
         ]
     )
-    assert refused == 1
-    assert "cannot compare" in capsys.readouterr().err
+    assert code == 0
+    report = json.loads((tmp_path / "owner.json").read_text(encoding="utf-8"))
+    assert report["meta"]["policy"] == "baseline"
+    assert report["meta"]["grid"]["skills"] == [100]
+    assert report["meta"]["grid"]["modifiers"] == ["exquisite_bone_saw"]
+    assert len(report["cells"]) == 27 * 6 * 1 * 1
 
 
-def test_cli_bench_refuses_the_advisor_until_m2(
-    capsys: pytest.CaptureFixture[str],
+@pytest.mark.parametrize(
+    "options",
+    [["--skills", "101"], ["--skills", "x"], ["--modifiers", "magic"]],
+)
+def test_cli_bench_rejects_bad_grid_options(
+    options: list[str], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert cli.main(["bench", "--policy", "advisor", "--runs", "1"]) == 1
-    assert "M2" in capsys.readouterr().err
+    assert cli.main(["bench", "--runs", "1", *options]) == 1
+    assert "surg bench:" in capsys.readouterr().err
 
 
-def test_cli_stubs_still_exit_non_zero(capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.main(["next", "state.json"]) == 1
-    assert "(M2)" in capsys.readouterr().err
+def test_cli_policy_defaults_to_the_advisor() -> None:
+    parser_defaults = {}
+    for command in ("play", "bench"):
+        parsed = cli.build_parser().parse_args([command])
+        parser_defaults[command] = parsed.policy
+    assert parser_defaults == {"play": "advisor", "bench": "advisor"}
+
+
+def test_cli_policy_choices_match_the_runner() -> None:
+    from harness.runner import POLICY_NAMES
+
+    assert cli.POLICY_CHOICES == list(POLICY_NAMES)
 
 
 def test_tools_used_are_counted_per_tool_and_fewest_is_kept() -> None:

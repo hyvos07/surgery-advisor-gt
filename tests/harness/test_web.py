@@ -29,9 +29,12 @@ def test_options_list_every_choice() -> None:
     options = client.get("/options").json()
     assert len(options["maladies"]) == 27 and len(options["conditions"]) == 6
     assert len(options["tools"]) == 14 and options["policies"] == [
+        "advisor",
+        "advisor-min-antiseptic",
         "baseline",
         "train-e-plus",
     ]
+    assert options["policies"][0] == "advisor"  # the page's select starts on it
 
 
 def test_start_returns_turn_zero_and_the_first_pick() -> None:
@@ -39,7 +42,7 @@ def test_start_returns_turn_zero_and_the_first_pick() -> None:
     assert view["turn"] == 0 and view["ended"] is False and view["log"] == []
     assert view["state"]["status"] == "awake"
     assert view["decision"]["tool"] in view["state"]["usable_tools"]
-    assert view["settings"]["seed"] == 5 and view["policy"] == "baseline"
+    assert view["settings"]["seed"] == 5 and view["policy"] == "advisor"
 
 
 def test_next_applies_the_pending_decision_and_logs_it() -> None:
@@ -89,6 +92,31 @@ def test_restart_replays_the_same_surgery() -> None:
     assert again["log"] == played["log"] and again["state"] == played["state"]
 
 
+@pytest.mark.parametrize("policy", ["advisor", "advisor-min-antiseptic"])
+def test_restart_resets_the_advisors_memory(policy: str) -> None:
+    """A restarted surgery replays the first run to the end, turn for turn.
+
+    With memory left over from the first run, the advisor would already "know" the
+    diagnosis on turn 0 and would play differently.
+    """
+
+    def play_out(surgery_id: str, view: dict) -> dict:
+        for _ in range(100):
+            if view["ended"]:
+                break
+            view = client.post(f"/surgeries/{surgery_id}/next").json()
+        assert view["ended"]
+        return view
+
+    first = start(malady="Heart Attack", condition="tough_skin", policy=policy)
+    finished = play_out(first["id"], first)
+    restarted = client.post(f"/surgeries/{first['id']}/restart").json()
+    assert restarted["decision"] == first["decision"] and restarted["log"] == []
+    replay = play_out(first["id"], restarted)
+    assert replay["log"] == finished["log"]
+    assert replay["end"] == finished["end"]
+
+
 def test_same_seed_in_two_surgeries_matches() -> None:
     a, b = start(), start()
     assert a["id"] != b["id"]
@@ -118,7 +146,6 @@ def test_train_e_hint_is_listed_while_running() -> None:
         {"condition": "grumpy"},
         {"skill": 101},
         {"modifier": "magic"},
-        {"policy": "advisor"},
         {"policy": "x"},
     ],
 )

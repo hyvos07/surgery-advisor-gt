@@ -91,7 +91,10 @@ uv run surg bench --runs 5                                    # quick check
 uv run surg bench --runs 20 --compare reports/baseline.json   # before/after a change
 uv run surg bench --policy baseline --runs 200                # score the baseline
 uv run surg bench --runs 200 --out reports/baseline           # write reports/baseline.json and .md
+uv run surg bench --skills 100 --modifiers exquisite_bone_saw --runs 200   # the owner's setup
 ```
+
+`--policy` is `advisor` (the default), `advisor-min-antiseptic`, `baseline` or `train-e-plus`. `--skills` takes a comma list of levels (default `0,25,50,75,100`) and `--modifiers` a comma list of modifier ids or `none` (default `none`); each builds the grid's skill and modifier axes. The owner's setup is 27 maladies × 6 conditions × skill 100 × the Exquisite Bone Saw: 162 cells.
 
 ### Grid
 
@@ -113,7 +116,7 @@ Run *i* of a cell uses a seed derived from the cell and *i*, so the same grid al
 
 ### Report
 
-Written to `reports/<timestamp>.json` and `reports/<timestamp>.md`, or to `<BASE>.json` and `<BASE>.md` with `--out BASE`. Until the advisor exists (M2), `--policy` defaults to `baseline`, and `--policy advisor` exits with an error. `--compare` refuses a saved report made with a different `--runs`, grid or turn cap.
+Written to `reports/<timestamp>.json` and `reports/<timestamp>.md`, or to `<BASE>.json` and `<BASE>.md` with `--out BASE`. `--compare` refuses a saved report made with a different `--runs`, grid (including `--skills` and `--modifiers`) or turn cap. Every surgery gets a fresh policy, so the advisor's memory never carries over from one seed to the next.
 
 The JSON holds the grid, per-cell outcome counts and, for every death, its seed, outcome and the last 3 rules that fired. Contents:
 

@@ -9,6 +9,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
+from advisor import knowledge
+from advisor.config import ANTISEPTIC_DRAFT, ANTISEPTIC_MINIMAL, Config
+from advisor.engine import decide
+from advisor.memory import Memory
+from advisor.state import ScreenState
 from harness.baseline import baseline_policy, train_e_plus_policy
 from harness.observe import observe, strip_formatting
 from harness.surge import (
@@ -76,16 +81,47 @@ class Result:
     end_text: str
 
 
+class AdvisorPolicy:
+    """The rule engine as a policy: one instance per surgery, because it has memory.
+
+    It ignores `patient` and sees only the screen state, like a player would.
+    The `Config` is built from the first state's skill and modifier.
+    """
+
+    def __init__(self, antiseptic_mode: str = ANTISEPTIC_DRAFT) -> None:
+        self.antiseptic_mode = antiseptic_mode
+        self.memory = Memory.new(knowledge.load())
+        self.config: Config | None = None
+
+    def __call__(self, state: dict[str, Any], patient: Patient) -> dict[str, str]:
+        screen = ScreenState.from_dict(state)
+        if self.config is None:
+            self.config = Config.for_patient(
+                screen.skill_level,
+                screen.modifier.value if screen.modifier else None,
+                antiseptic_mode=self.antiseptic_mode,
+            )
+        return decide(screen, self.memory, self.config).to_dict()
+
+
+# Each entry builds a new policy, so no memory is shared between surgeries.
+_POLICY_FACTORIES: dict[str, Callable[[], Policy]] = {
+    "advisor": AdvisorPolicy,
+    "advisor-min-antiseptic": lambda: AdvisorPolicy(ANTISEPTIC_MINIMAL),
+    "baseline": lambda: baseline_policy,
+    "train-e-plus": lambda: train_e_plus_policy,
+}
+POLICY_NAMES = tuple(_POLICY_FACTORIES)
+
+
 def policy_by_name(name: str) -> Policy:
-    if name == "baseline":
-        return baseline_policy
-    if name == "train-e-plus":
-        return train_e_plus_policy
-    if name == "advisor":
-        raise NotImplementedError("the advisor policy arrives in milestone M2")
-    raise ValueError(
-        f"unknown policy {name!r}; choose baseline, train-e-plus or advisor"
-    )
+    """A fresh policy. Call it once per surgery: the advisor keeps memory."""
+    factory = _POLICY_FACTORIES.get(name)
+    if factory is None:
+        raise ValueError(
+            f"unknown policy {name!r}; choose from {', '.join(POLICY_NAMES)}"
+        )
+    return factory()
 
 
 def resolve_settings(

@@ -21,7 +21,7 @@ from harness.runner import (
     policy_by_name,
     run_surgery,
 )
-from harness.surge import CONDITION_NAMES, MALADY_NAMES
+from harness.surge import CONDITION_NAMES, MALADY_NAMES, MODIFIER_NAMES
 
 OUTCOMES = (SUCCESS, AVOIDABLE_DEATH, UNLUCKY_DEATH, TIMEOUT)
 SKILLS = (0, 25, 50, 75, 100)
@@ -61,10 +61,56 @@ def full_grid() -> Grid:
     return Grid(MALADY_NAMES, tuple(CONDITION_NAMES), SKILLS, (None,))
 
 
+def parse_skills(text: str) -> tuple[int, ...]:
+    """Skill levels from a comma list such as `0,25,100`."""
+    skills: list[int] = []
+    for part in text.split(","):
+        try:
+            skill = int(part.strip())
+        except ValueError:
+            raise ValueError(
+                f"--skills must be a comma list of whole numbers, got {part.strip()!r}"
+            ) from None
+        if not 0 <= skill <= 100:
+            raise ValueError(f"--skills values must be 0 to 100, got {skill}")
+        if skill in skills:
+            raise ValueError(f"--skills lists {skill} twice")
+        skills.append(skill)
+    return tuple(skills)
+
+
+def parse_modifiers(text: str) -> tuple[str | None, ...]:
+    """Modifier ids from a comma list; `none` means no modifier."""
+    modifiers: list[str | None] = []
+    for part in text.split(","):
+        name = part.strip().lower()
+        if name != "none" and name not in MODIFIER_NAMES:
+            raise ValueError(
+                f"unknown modifier {part.strip()!r} in --modifiers; "
+                f"choose from none, {', '.join(MODIFIER_NAMES)}"
+            )
+        value = None if name == "none" else name
+        if value in modifiers:
+            raise ValueError(f"--modifiers lists {name} twice")
+        modifiers.append(value)
+    return tuple(modifiers)
+
+
+def grid_from_options(
+    skills: str = ",".join(map(str, SKILLS)), modifiers: str = "none"
+) -> Grid:
+    """The full malady and condition grid with the chosen skills and modifiers."""
+    return Grid(
+        MALADY_NAMES,
+        tuple(CONDITION_NAMES),
+        parse_skills(skills),
+        parse_modifiers(modifiers),
+    )
+
+
 def run_cell(job: tuple[str, Cell, int]) -> Report:
     """Play `runs` seeded surgeries (seeds 0 to runs-1) of one grid cell."""
     policy_name, (malady, condition, skill, modifier), runs = job
-    policy = policy_by_name(policy_name)
     outcomes = dict.fromkeys(OUTCOMES, 0)
     tools_on_success = turns = illegal_moves = skill_fails = 0
     fewest: int | None = None
@@ -75,7 +121,7 @@ def run_cell(job: tuple[str, Cell, int]) -> Report:
         last_rules: deque[str] = deque(maxlen=3)
         result = run_surgery(
             Settings(malady, condition, skill, modifier, seed),
-            policy,
+            policy_by_name(policy_name),  # fresh per surgery: the advisor has memory
             policy_name,
             on_record=lambda record, rules=last_rules: rules.append(
                 record["decision"]["rule"]
@@ -162,7 +208,7 @@ def run_grid(
     progress: Callable[[int, int], None] | None = None,
 ) -> Report:
     """Run every cell of the grid; `workers=1` runs in this process."""
-    policy_by_name(policy_name)  # fail fast on an unknown or unfinished policy
+    policy_by_name(policy_name)  # fail fast on an unknown policy
     grid = grid or full_grid()
     cells = grid.cells()
     jobs = [(policy_name, cell, runs) for cell in cells]

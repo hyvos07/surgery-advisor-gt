@@ -1,39 +1,19 @@
 """The advisor plays real SurgE surgeries without an illegal move or an exception.
 
-The adapter here is test-local: it turns the harness screen state into a
-`ScreenState`, keeps one `Memory` per surgery and calls `engine.decide`. The test
-reads hidden values (counts that must never go below zero) only to check the
-advisor against; the advisor itself never sees them (AGENTS.md hard rule 2).
+It plays through `AdvisorPolicy`, the same adapter the CLI, benchmark and web
+viewer use. The test reads hidden values (counts that must never go below zero)
+only to check the advisor against; the advisor itself never sees them (AGENTS.md
+hard rule 2).
 """
 
 from collections import Counter
-from typing import Any
 
-from advisor import knowledge
-from advisor.config import Config
-from advisor.engine import decide
-from advisor.memory import Memory
-from advisor.state import ScreenState, Status, Tool
-from harness.runner import Settings, Surgery
+from advisor.state import Status, Tool
+from harness.runner import AdvisorPolicy, Settings, Surgery
 from harness.surge import CONDITION_NAMES, MALADY_NAMES
 
 SKILLS = (0, 100)
 SEEDS = (0, 1)
-
-
-class AdvisorAdapter:
-    """One advisor per surgery: its memory must never be shared."""
-
-    def __init__(self) -> None:
-        self.memory = Memory.new(knowledge.load())
-        self.config: Config | None = None
-
-    def __call__(self, state: dict[str, Any], patient: Any) -> dict[str, str]:
-        screen = ScreenState.from_dict(state)
-        if self.config is None:
-            modifier = screen.modifier.value if screen.modifier else None
-            self.config = Config.for_patient(screen.skill_level, modifier)
-        return decide(screen, self.memory, self.config).to_dict()
 
 
 def play_one(settings: Settings) -> tuple[str, int]:
@@ -45,7 +25,7 @@ def play_one(settings: Settings) -> tuple[str, int]:
         f"{settings.malady}/{settings.condition}/skill {settings.skill}"
         f"/seed {settings.seed}"
     )
-    surgery = Surgery(settings, AdvisorAdapter(), "advisor")
+    surgery = Surgery(settings, AdvisorPolicy(), "advisor")
     while not surgery.ended:
         record = surgery.step()
         state, tool = record["state"], record["decision"]["tool"]

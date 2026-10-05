@@ -52,8 +52,24 @@ def test_play_rejects_unknown_names(capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["play", "--malady", "Hiccups"]) == 1
     assert "unknown malady" in capsys.readouterr().err
     assert cli.main(["play", "--condition", "grumpy"]) == 1
-    assert cli.main(["play", "--policy", "advisor"]) == 1
-    assert "M2" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        cli.main(["play", "--policy", "magic"])
+
+
+def test_play_uses_the_advisor_by_default(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["play", "--malady", "Heart Attack", "--seed", "2"]) == 0
+    out = capsys.readouterr().out
+    assert "policy advisor" in out
+    assert "[P1]" in out  # the advisor's first pick is a rule, not Train-E's tip
+
+
+def test_play_takes_every_policy(capsys: pytest.CaptureFixture[str]) -> None:
+    for policy in ("advisor", "advisor-min-antiseptic", "baseline", "train-e-plus"):
+        args = ["play", "--malady", "Broken Arm", "--skill", "100", "--seed", "1"]
+        assert cli.main([*args, "--policy", policy]) == 0
+        assert f"policy {policy}" in capsys.readouterr().out
 
 
 def test_blank_fields_are_filled_the_same_way_for_the_same_seed() -> None:

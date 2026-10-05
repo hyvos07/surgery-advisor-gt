@@ -149,12 +149,12 @@ All enum values are lowercase snake case. A field is `null` when the screen does
 
 | Command | What it does |
 | --- | --- |
-| `surg next state.json` | Prints the decision for one state (memory starts empty) |
+| `surg next state.json` | Prints the decision for one state as JSON (memory starts empty); an unreadable file, invalid JSON or a schema error prints a message on stderr and exits 1 |
 | `surg play --skill 40 --condition hyperactive --seed 7` | Runs one SurgE surgery in the terminal, turn by turn |
 | `surg bench --runs 200` | Runs the full benchmark grid and writes a report |
 | `surg web` | Starts the web viewer on `http://127.0.0.1:8000` (`--port` changes the port; the host is fixed) |
 
-`surg play` also takes `--malady`, `--modifier`, `--policy` and `--log FILE.jsonl`; blank settings are chosen at random from the seed. `surg bench` also takes `--policy`, `--out BASE`, `--compare REPORT.json` and `--workers`.
+`surg play` also takes `--malady`, `--modifier`, `--policy` and `--log FILE.jsonl`; blank settings are chosen at random from the seed. `surg bench` also takes `--policy`, `--skills` (comma list, default `0,25,50,75,100`), `--modifiers` (comma list of ids or `none`, default `none`), `--out BASE`, `--compare REPORT.json` and `--workers`. `--policy` is `advisor` (the default), `advisor-min-antiseptic`, `baseline` or `train-e-plus`.
 
 ## 9. Non-functional requirements
 

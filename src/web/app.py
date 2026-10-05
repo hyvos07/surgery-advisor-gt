@@ -24,7 +24,7 @@ from harness.surge import (
 
 STATIC = Path(__file__).parent / "static"
 MAX_SURGERIES = 100  # the oldest is dropped beyond this; surgeries live in memory only
-POLICIES = ["baseline", "train-e-plus"]  # the advisor joins in M2
+POLICIES = ["advisor", "advisor-min-antiseptic", "baseline", "train-e-plus"]
 
 # Fields whose change is worth showing in the turn log.
 _WATCHED = (
@@ -49,7 +49,7 @@ class StartRequest(BaseModel):
     condition: str | None = None
     skill: int | None = None
     modifier: str | None = None
-    policy: str = "baseline"
+    policy: str = "advisor"
     seed: int | None = None
 
 
@@ -139,7 +139,7 @@ def start(request: StartRequest) -> dict[str, Any]:
             request.seed,
         )
         surgery = Surgery(settings, policy_by_name(request.policy), request.policy)
-    except (NotImplementedError, ValueError) as error:
+    except ValueError as error:
         raise HTTPException(400, str(error)) from None
     surgery_id = secrets.token_urlsafe(6)
     entry = Entry(surgery, request.policy)
@@ -189,6 +189,7 @@ def restart(surgery_id: str) -> dict[str, Any]:
     entry = _entry(surgery_id)
     with entry.lock:
         old = entry.surgery
+        # A fresh policy: the advisor's memory must start empty again.
         entry.surgery = Surgery(
             old.settings, policy_by_name(entry.policy), entry.policy
         )
