@@ -32,7 +32,7 @@ Skipping step 3 leaves the status empty, and a Scalpel on turn 0 would not kill 
 
 1. `observe.py` builds the screen state from SurgE's display texts and the tool-tray conditions.
 2. The policy (advisor or baseline) returns a decision.
-3. The runner rejects the decision if its tool isn't usable, and records that as an illegal move.
+3. The runner rejects the decision if its tool isn't usable, records an illegal move, and applies the Sponge instead (always usable) so the surgery can go on.
 4. The runner calls `UseTool()` with the surgery's own random state swapped in, then swaps it back out.
 5. The turn is logged as one JSON line.
 6. The surgery stops on SurgE's end text or at the 80-turn cap.
@@ -42,11 +42,13 @@ Skipping step 3 leaves the status empty, and a Scalpel on turn 0 would not kill 
 | Outcome | Meaning |
 | --- | --- |
 | `success` | SurgE's "The surgery was a success!" |
-| `avoidable_death` | Death after a turn where the policy chose an illegal move, or where a different legal tool would have prevented it |
+| `avoidable_death` | Death in a surgery where the policy chose an illegal move at any turn, or where a different usable tool would have prevented the fatal turn |
 | `unlucky_death` | Death no legal tool could prevent, such as two Defibrillator fails in a row |
 | `timeout` | 80 turns without an ending |
 
-Telling avoidable from unlucky deaths: for each death, the runner replays the turns before it from the saved random state with every other legal tool. If any alternative survives the next turn's roll under the same random draws, the death is avoidable. This check runs on deaths only, so it stays cheap.
+Telling avoidable from unlucky deaths: for each death, the runner replays the surgery up to the fatal turn from its seed, then tries every other usable tool from that same state and random draw. If any alternative survives that turn, the death is avoidable. This check runs on deaths only, so it stays cheap.
+
+**Limit:** the check is one turn deep. A death caused by a mistake made earlier, such as never clamping a bleed, is counted as unlucky. Milestone M3 adds a deeper lookback ([PLAN.md](../PLAN.md)).
 
 ## Train-E baseline
 

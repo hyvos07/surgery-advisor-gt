@@ -2,7 +2,7 @@
 
 The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the full benchmark grid with zero avoidable deaths. Requirements are in [PRD.md](PRD.md); this file is the order of work.
 
-**Current status:** M0 done; M1 started (observation adapter done). Package layout, `surg` stubs, SurgE submodule, smoke tests, CI and pre-commit hooks are in place. Next up in M1: the runner.
+**Current status:** M0 done; M1 started (observation adapter and runner done). Package layout, `surg` stubs, SurgE submodule, smoke tests, CI and pre-commit hooks are in place. Next up in M1: the Train-E baseline.
 
 ## Milestones
 
@@ -40,10 +40,10 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 
 **Runner** (`src/harness/runner.py`)
 
-- [ ] Run one surgery to the end with any policy: apply tool, record turn, stop on SurgE's end text or the 80-turn cap
-- [ ] Save and restore Python's random state around every SurgE call, so each surgery has its own seed
-- [ ] Classify the outcome: success, avoidable death, unlucky death, timeout
-- [ ] Write each turn as a JSON line: seed, turn, state, decision, tool text, outcome
+- [x] Run one surgery to the end with any policy: apply tool, record turn, stop on SurgE's end text or the 80-turn cap
+- [x] Save and restore Python's random state around every SurgE call, so each surgery has its own seed
+- [x] Classify the outcome: success, avoidable death, unlucky death, timeout
+- [x] Write each turn as a JSON line: seed, turn, state, decision, tool text, outcome
 
 **Train-E baseline** (`src/harness/baseline.py`)
 
