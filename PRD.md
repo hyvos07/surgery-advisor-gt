@@ -203,7 +203,7 @@ Plan and task lists: [PLAN.md](PLAN.md).
 ## 13. Open questions
 
 - Q1. Should the default threshold profile be `surge` or `wiki`? Until decided, the default is `surge`, because all testing runs on SurgE.
-- Q2. Should modifiers be in the benchmark grid, or only no-modifier runs for the MVP? Until decided, the grid has no modifiers and a separate smaller modifier run.
+- Q2. Should modifiers be in the benchmark grid, or only no-modifier runs for the MVP? Until decided, the grid has no modifiers and a separate smaller modifier run. The owner plays at skill 100 with the Exquisite Bone Saw (2% skill fails), so that setup is the headline benchmark alongside the full grid (D12).
 - Q3. Which license should this repository use? Until decided, there is no license file.
 
 ## 14. References

@@ -41,7 +41,7 @@ Python 3.12 or newer is required. SurgE uses 3.12 f-string syntax and fails to i
 | Quick benchmark (about 1 minute) | `uv run surg bench --runs 5` |
 | Full benchmark | `uv run surg bench --runs 200` |
 | Save a report as the number to beat | `uv run surg bench --runs 200 --out reports/baseline` |
-| Compare with a saved report | `uv run surg bench --runs 20 --compare reports/baseline.json` |
+| Compare with a saved report | `uv run surg bench --runs 5 --compare reports/baseline-5.json` (a report is only comparable with one made with the same `--runs` and grid: `reports/baseline-5.json` for 5 runs, `reports/baseline.json` for 200) |
 | Web viewer | `uv run surg web`, then open `http://127.0.0.1:8000` |
 
 Before you finish any change, run lint, format check, type check and unit tests. If you changed anything under `src/advisor/`, also run the quick benchmark and compare it with the last saved report.

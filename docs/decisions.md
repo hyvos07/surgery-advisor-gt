@@ -15,6 +15,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D9 | 2026-10-05 | Python 3.12, uv, pytest, ruff, mypy, FastAPI | Accepted |
 | D10 | 2026-10-05 | `usable_tools` derived from on-screen text, plus three tray flags | Accepted |
 | D11 | 2026-10-05 | `train-e-plus` as a second reference; pure Train-E stays the target | Accepted |
+| D12 | 2026-10-05 | Owner's setup (skill 100, Exquisite Bone Saw) is the headline benchmark | Accepted |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -92,3 +93,10 @@ Choices someone might later question, with the reason and what would reopen them
 - **Decision:** add `train-e-plus`, which plays identically to `baseline` wherever Train-E has a usable tip and patches only the three known gaps (TP1 to TP3 in [testing.md](testing.md#second-reference-policy-train-e-plus)); the one place it overrides a usable tip is TP3. The PRD section 10 targets keep comparing against `baseline`.
 - **Why:** it separates "the advisor beats SurgE's own hints" from "the advisor only fixed two holes", without moving the target. It can't make `baseline` look worse or better, because `baseline` is untouched.
 - **Revisit if:** more gaps are found. Add them to `train-e-plus` only, and record the change here.
+
+## D12. Owner's setup (skill 100, Exquisite Bone Saw) is the headline benchmark
+
+- **Context:** the owner plays at skill 100 with the Exquisite Bone Saw. In SurgE every modifier except the Stethoscope sets the fail rate to round(35 − skill ÷ 3), so this setup fails 2% of the time, against 5% at skill 100 with no modifier (at skill 0 the Bone Saw is worse: 35% against 30%). The Bone Saw has no other effect in SurgE.
+- **Decision:** report a benchmark of all 27 maladies × 6 conditions at skill 100 with the Exquisite Bone Saw first, then the full grid. The full grid and the PRD section 10 targets are unchanged, and the advisor must still handle every skill level and modifier (FR6).
+- **Why:** it measures the advisor where it will be used, without dropping the coverage that keeps it general.
+- **Revisit if:** the owner's setup changes, or PRD open question Q2 is settled.
