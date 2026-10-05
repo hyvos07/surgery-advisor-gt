@@ -11,15 +11,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from harness.baseline import baseline_policy
 from harness.runner import (
     AVOIDABLE_DEATH,
     MAX_TURNS,
     SUCCESS,
     TIMEOUT,
     UNLUCKY_DEATH,
-    Policy,
     Settings,
+    policy_by_name,
     run_surgery,
 )
 from harness.surge import CONDITION_NAMES, MALADY_NAMES
@@ -60,14 +59,6 @@ class Grid:
 def full_grid() -> Grid:
     """27 maladies x 6 conditions x 5 skill levels, no modifier (docs/testing.md)."""
     return Grid(MALADY_NAMES, tuple(CONDITION_NAMES), SKILLS, (None,))
-
-
-def policy_by_name(name: str) -> Policy:
-    if name == "baseline":
-        return baseline_policy
-    if name == "advisor":
-        raise NotImplementedError("the advisor policy arrives in milestone M2")
-    raise ValueError(f"unknown policy {name!r}; choose baseline or advisor")
 
 
 def run_cell(job: tuple[str, Cell, int]) -> Report:

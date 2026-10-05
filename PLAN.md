@@ -2,7 +2,7 @@
 
 The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the full benchmark grid with zero avoidable deaths. Requirements are in [PRD.md](PRD.md); this file is the order of work.
 
-**Current status:** M0 done; M1 started (observation adapter, runner and baseline done). Package layout, `surg` stubs, SurgE submodule, smoke tests, CI and pre-commit hooks are in place. Next up in M1: `surg bench`.
+**Current status:** M0 done; M1 started (observation adapter, runner, baseline, `surg bench` and `surg play` done; baseline scores 22.0% on the full grid). Package layout, `surg` stubs, SurgE submodule, smoke tests, CI and pre-commit hooks are in place. Next up in M1: the web viewer.
 
 ## Milestones
 
@@ -52,14 +52,14 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 
 **CLI and viewer**
 
-- [ ] `surg play`: print each turn's screen and decision in the terminal
+- [x] `surg play`: print each turn's screen and decision in the terminal
 - [ ] `surg web`: FastAPI server on `127.0.0.1:8000` with the endpoints in [docs/testing.md](docs/testing.md#web-viewer)
 - [ ] Single HTML page: patient screen, advisor panel, Next, Auto-play with speed control, Pause, Restart, New surgery form, turn log, end card, Train-E toggle
 - [ ] Until M2 lands, the viewer runs the Train-E baseline as its policy
 
 **Baseline benchmark**
 
-- [ ] `surg bench --policy baseline` over the full grid; save the report as the number to beat
+- [x] `surg bench --policy baseline` over the full grid; save the report as the number to beat
 
 ## M2: Rule engine v1
 

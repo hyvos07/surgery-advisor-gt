@@ -8,8 +8,15 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
+from harness.baseline import baseline_policy
 from harness.observe import observe, strip_formatting
-from harness.surge import TOOL_TYPES, Patient, start_surgery
+from harness.surge import (
+    CONDITION_NAMES,
+    MALADY_NAMES,
+    TOOL_TYPES,
+    Patient,
+    start_surgery,
+)
 
 MAX_TURNS = 80  # stands in for the real game's 2-minute timer
 
@@ -65,6 +72,37 @@ class Result:
     skill_fails: int
     illegal_moves: int
     end_text: str
+
+
+def policy_by_name(name: str) -> Policy:
+    if name == "baseline":
+        return baseline_policy
+    if name == "advisor":
+        raise NotImplementedError("the advisor policy arrives in milestone M2")
+    raise ValueError(f"unknown policy {name!r}; choose baseline or advisor")
+
+
+def resolve_settings(
+    malady: str | None = None,
+    condition: str | None = None,
+    skill: int | None = None,
+    modifier: str | None = None,
+    seed: int | None = None,
+) -> Settings:
+    """Fill blank fields at random. The same seed always fills them the same way.
+
+    A blank modifier means no modifier, as in the benchmark grid.
+    """
+    if seed is None:
+        seed = random.SystemRandom().randrange(2**31)
+    pick = random.Random(f"settings-{seed}")
+    return Settings(
+        malady=malady or pick.choice(MALADY_NAMES),
+        condition=condition or pick.choice(list(CONDITION_NAMES)),
+        skill=pick.randint(0, 100) if skill is None else skill,
+        modifier=modifier,
+        seed=seed,
+    )
 
 
 def _is_success(patient: Patient) -> bool:
