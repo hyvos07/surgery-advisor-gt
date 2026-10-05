@@ -84,6 +84,7 @@ uv run surg bench --runs 200                                  # full grid
 uv run surg bench --runs 5                                    # quick check
 uv run surg bench --runs 20 --compare reports/baseline.json   # before/after a change
 uv run surg bench --policy baseline --runs 200                # score the baseline
+uv run surg bench --runs 200 --out reports/baseline           # write reports/baseline.json and .md
 ```
 
 ### Grid
@@ -106,7 +107,9 @@ Run *i* of a cell uses a seed derived from the cell and *i*, so the same grid al
 
 ### Report
 
-Written to `reports/<timestamp>.json` and `reports/<timestamp>.md`:
+Written to `reports/<timestamp>.json` and `reports/<timestamp>.md`, or to `<BASE>.json` and `<BASE>.md` with `--out BASE`. Until the advisor exists (M2), `--policy` defaults to `baseline`, and `--policy advisor` exits with an error. `--compare` refuses a saved report made with a different `--runs`, grid or turn cap.
+
+The JSON holds the grid, per-cell outcome counts and, for every death, its seed, outcome and the last 3 rules that fired. Contents:
 
 - Success rate and outcome counts per malady, per condition and per skill level, advisor and baseline side by side
 - Average tools used per success
