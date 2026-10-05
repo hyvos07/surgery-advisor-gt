@@ -139,6 +139,7 @@ Things in SurgE that will bite you. The harness handles each one; keep it that w
 | SurgE uses Python's global `random` | Save and restore the random state around every SurgE call, per surgery |
 | `Patient.timer()` sleeps for real minutes; `SetCurrentPatientEmbed()` rolls a reward drop | Never call either. Use the 80-turn cap and read texts directly |
 | Nose Job starts already diagnosed, so Ultrasound is never usable and hidden conditions stay hidden | The advisor assumes both hidden conditions (see [docs/decision-engine.md](docs/decision-engine.md#special-conditions)) |
+| The low-bleeding Train-E tip has no newline, so the next tip is glued on ("Losing BloodShattered Bone") | `harness/baseline.py` splits the text back apart; keep the regression test |
 | The disc malady is spelled "Herinated Disc" | Use SurgE's spelling when passing malady names |
 
 ## Keeping docs in sync

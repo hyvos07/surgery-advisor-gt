@@ -14,6 +14,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D8 | 2026-10-05 | `surge` threshold profile as the default | Provisional (PRD Q1) |
 | D9 | 2026-10-05 | Python 3.12, uv, pytest, ruff, mypy, FastAPI | Accepted |
 | D10 | 2026-10-05 | `usable_tools` derived from on-screen text, plus three tray flags | Accepted |
+| D11 | 2026-10-05 | `train-e-plus` as a second reference; pure Train-E stays the target | Accepted |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -84,3 +85,10 @@ Choices someone might later question, with the reason and what would reopen them
 - **Decision:** `observe.py` derives `usable_tools` from the screen. Defibrillator is the "Heart Stopped!" status, a workable site is the absence of "You can't see what you are doing!", Pins and Clamp need an open incision, Ultrasound needs no diagnosis. Fix It, Lab Kit and Antibiotics have no text, so `observe.py` reads SurgE's `IsFixable`, `IsLabKitUsed` and `LabWorked` flags, which are the tray's button state.
 - **Why:** the advisor sees the same things on the real game, where the tray itself is on screen. `tests/harness/test_observe.py` checks the derived list against a copy of SurgE's tray conditions on 300 random surgeries, and scans `observe.py` for the hidden names.
 - **Revisit if:** SurgE changes its tray (a bump of the pin), or M5 shows the real tray can't be read reliably.
+
+## D11. `train-e-plus` as a second reference; pure Train-E stays the target
+
+- **Context:** the pure Train-E baseline stalls on patients its tips don't cover (Pins with no incision, Stitches before Pins, a high temperature with no fever), so a large share of its failures say little about how good a real strategy is.
+- **Decision:** add `train-e-plus`, which plays identically to `baseline` wherever Train-E has a usable tip and patches only the three known gaps (TP1 to TP3 in [testing.md](testing.md#second-reference-policy-train-e-plus)); the one place it overrides a usable tip is TP3. The PRD section 10 targets keep comparing against `baseline`.
+- **Why:** it separates "the advisor beats SurgE's own hints" from "the advisor only fixed two holes", without moving the target. It can't make `baseline` look worse or better, because `baseline` is untouched.
+- **Revisit if:** more gaps are found. Add them to `train-e-plus` only, and record the change here.

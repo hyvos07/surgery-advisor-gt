@@ -77,6 +77,12 @@ The baseline is the number to beat. Each turn it takes SurgE's first Train-E tip
 
 If no tip maps to a usable tool, the baseline uses the Sponge.
 
+SurgE writes the "Losing Blood" tip with no newline when bleeding is under 4, so the next tip is glued onto it ("Losing BloodShattered Bone - …"). The parser splits them apart, otherwise the following tip is lost.
+
+### Second reference policy: `train-e-plus`
+
+Train-E has three blind spots that make the pure baseline stall until the turn cap or fail outright. It asks for Pins but never says to cut first. Its "Stitch it Up!" tip outranks "Shattered Bone", so it closes the incision before Pins can be used. And it treats a fever only when one is shown, so patients that start hot with no fever (Grumbleteeth, Liver Infection) are never cooled. `--policy train-e-plus` plays exactly like `baseline` on every turn where Train-E has a usable tip, with one exception, and patches the rest where `baseline` would give up and use the Sponge. Rules: `TP1` Lab Kit then Antibiotics for a temperature at or above 101°F with no fever shown; `TP2` Anesthetic or Scalpel to open the incision Pins need; `TP3` (the exception) Pins before Stitches while a shattered bone and an open incision both exist. It shows how much of the advisor's gain over Train-E comes from fixing those holes. **The target in PRD section 10 stays the pure `baseline`.**
+
 ## Benchmark
 
 ```bash
