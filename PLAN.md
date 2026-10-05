@@ -2,7 +2,7 @@
 
 The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the full benchmark grid with zero avoidable deaths. Requirements are in [PRD.md](PRD.md); this file is the order of work.
 
-**Current status:** M1 done. The harness plays SurgE from screen text alone (`surg play`, `surg web`, `surg bench`), and the Train-E baseline scores 22.0% over the full grid (`reports/baseline.json`, 162,000 surgeries in 147 s). Next up is M2: the rule engine.
+**Current status:** M2 done. The rule engine runs in `surg play`, `surg web`, `surg bench` and `surg next`. After two owner-approved fixes (D13) the advisor wins 96.2% in the owner's setup (skill 100, Exquisite Bone Saw) and 67.7% over the full grid, against 22.0% for the Train-E baseline, with zero illegal moves. Next up is M3: the first full benchmark report and the death analysis.
 
 ## Milestones
 
@@ -63,16 +63,16 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 
 ## M2: Rule engine v1
 
-- [ ] `src/advisor/state.py`: typed screen-state and decision models, with JSON parsing and validation
-- [ ] `src/advisor/knowledge.py`: load maladies and special conditions from `vendor/SurgE/data/*.json`
-- [ ] `src/advisor/memory.py`: diagnosis, incisions needed, condition, sleep turns left, Lab Kit used, fix done, previous temperature (to tell when the fever has turned negative)
-- [ ] `src/advisor/forecast.py`: one-step lookahead for pulse, temperature, dirt and sleep, from [docs/game-model.md](docs/game-model.md#what-happens-every-turn)
-- [ ] `src/advisor/rules.py`: one function per rule E1–E7 and P1–P13, in priority order, plus the legality check from [docs/decision-engine.md](docs/decision-engine.md#legality-check)
-- [ ] `src/advisor/config.py`: safety margins per skill band, and the `surge` and `wiki` threshold profiles
-- [ ] `src/advisor/engine.py`: `decide(state, memory) -> Decision` with the legality check
-- [ ] Unit tests: one hand-written state per rule that proves it fires; property test that Scalpel-while-Awake and Anesthetic-while-Unconscious are never returned for any generated state
-- [ ] Swap the viewer and `surg play` to the advisor policy
-- [ ] Owner preference to test: use Antiseptic as little as possible, only at the start of long surgeries such as Brain Tumor. Sponge is unaffected (it is forced at `cant_see`). Add it as a `config.py` margin, propose it before editing `rules.py`, and compare with the benchmark
+- [x] `src/advisor/state.py`: typed screen-state and decision models, with JSON parsing and validation
+- [x] `src/advisor/knowledge.py`: load maladies and special conditions from `vendor/SurgE/data/*.json`
+- [x] `src/advisor/memory.py`: diagnosis, incisions needed, condition, sleep turns left, Lab Kit used, fix done, previous temperature (to tell when the fever has turned negative)
+- [x] `src/advisor/forecast.py`: one-step lookahead for pulse, temperature, dirt and sleep, from [docs/game-model.md](docs/game-model.md#what-happens-every-turn)
+- [x] `src/advisor/rules.py`: one function per rule E1–E7 and P1–P13, in priority order, plus the legality check from [docs/decision-engine.md](docs/decision-engine.md#legality-check)
+- [x] `src/advisor/config.py`: safety margins per skill band, and the `surge` and `wiki` threshold profiles
+- [x] `src/advisor/engine.py`: `decide(state, memory) -> Decision` with the legality check
+- [x] Unit tests: one hand-written state per rule that proves it fires; property test that Scalpel-while-Awake and Anesthetic-while-Unconscious are never returned for any generated state
+- [x] Swap the viewer and `surg play` to the advisor policy
+- [x] Owner preference to test: use Antiseptic as little as possible, only at the start of long surgeries such as Brain Tumor. Sponge is unaffected (it is forced at `cant_see`). Add it as a `config.py` margin, propose it before editing `rules.py`, and compare with the benchmark (done: `advisor-min-antiseptic`; see D13. The default stays `draft` until the owner decides)
 
 ## M3: First benchmark
 

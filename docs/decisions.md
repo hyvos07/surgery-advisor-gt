@@ -16,6 +16,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D10 | 2026-10-05 | `usable_tools` derived from on-screen text, plus three tray flags | Accepted |
 | D11 | 2026-10-05 | `train-e-plus` as a second reference; pure Train-E stays the target | Accepted |
 | D12 | 2026-10-05 | Owner's setup (skill 100, Exquisite Bone Saw) is the headline benchmark | Accepted |
+| D13 | 2026-10-05 | Fix P5 re-cutting after Fix It; Sponge only at `cant_see` | Accepted |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -100,3 +101,19 @@ Choices someone might later question, with the reason and what would reopen them
 - **Decision:** report a benchmark of all 27 maladies × 6 conditions at skill 100 with the Exquisite Bone Saw first, then the full grid. The full grid and the PRD section 10 targets are unchanged, and the advisor must still handle every skill level and modifier (FR6).
 - **Why:** it measures the advisor where it will be used, without dropping the coverage that keeps it general.
 - **Revisit if:** the owner's setup changes, or PRD open question Q2 is settled.
+
+## D13. Fix P5 re-cutting after Fix It; Sponge only at `cant_see`
+
+- **Context:** the first build of the draft rules won 20.9% in the owner's setup and 17.8% over the full grid, below the Train-E baseline. Two loops caused most of it. P5 cut again after every Stitches once the malady was fixed, so P5 and P6 alternated until the turn cap. E2's "hard to see" branch sponged every turn while bleeding and open incisions kept adding dirt, holding back the Anesthetic, the Clamp and the Transfusion (E2 was the last rule in 357 of 538 deaths in a 648-surgery sample).
+- **Decision:** a cut is needed only while a Fix It malady is unfixed and below its incision count, or to reach shattered bones with no incision open. E2 fires only at `cant_see`; the dirt guard margin is removed. The owner chose "sponge only when the site can't be seen" over a capped pre-emptive Sponge, accepting that a heart that stops while the site can't be seen gets one Defibrillator try instead of two.
+- **Why (benchmark, 200 runs per cell, draft Antiseptic mode):**
+
+  | | Owner's setup, before | after | Full grid, before | after |
+  | --- | ---: | ---: | ---: | ---: |
+  | Success | 20.9% | 96.2% | 17.8% | 67.7% |
+  | Avoidable deaths | 5,232 | 82 | 47,847 | 3,583 |
+  | Timeouts | 17,334 | 63 | 24,739 | 994 |
+  | Tools per success | 6.7 | 17.2 | 7.9 | 18.7 |
+
+  Tools per success rose because the advisor now wins the long surgeries it used to lose; on the same cells it uses about 1.2 more tools per success than the Train-E baseline (0.6 more in `minimal` Antiseptic mode). `minimal` Antiseptic mode scored slightly better (96.6% owner's setup, 68.7% full grid, fewer tools); the default stays `draft` until the owner decides. Zero illegal moves in every run.
+- **Revisit if:** M3's death analysis shows deaths from a stopped heart behind a `cant_see` site, especially at low skill.
