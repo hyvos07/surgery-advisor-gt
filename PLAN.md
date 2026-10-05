@@ -76,6 +76,7 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 
 ## M3: First benchmark
 
+- [ ] Apply D14: make `minimal` the default Antiseptic mode (`Config` default and the `advisor` policy; keep `draft` selectable), update the docs that say `draft` is the default, then re-run the owner's-setup and full-grid benchmarks and re-save the comparison reports (`reports/baseline-5.json` stays as is)
 - [ ] Full grid for advisor and baseline with the same seeds
 - [ ] Report: success rate per malady, condition and skill level, side by side
 - [ ] Tools used: compare the tools per success only on surgeries (same cell and seed) that both advisor and baseline win, and record the fewest tools ever needed per cell as the reference to approach

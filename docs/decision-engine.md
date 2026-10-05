@@ -92,7 +92,7 @@ A malady that needs no Fix It (for example Broken Leg) is cut only to reach shat
 | `draft` (default) | As in the table above | As in the table above | Antiseptic |
 | `minimal` (owner's preference, under test) | Never fires | Only before the first cut, and only when the malady needs at least `antiseptic_min_incisions` incisions (default 5, Brain Tumor) | Sponge |
 
-The benchmark compares the two; the default changes only on the owner's decision.
+The benchmark compares the two; the default changes only on the owner's decision. **The owner chose `minimal` as the default (D14); the code still defaults to `draft` until that task in PLAN.md is done.**
 
 ## Legality check
 

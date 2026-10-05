@@ -17,6 +17,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D11 | 2026-10-05 | `train-e-plus` as a second reference; pure Train-E stays the target | Accepted |
 | D12 | 2026-10-05 | Owner's setup (skill 100, Exquisite Bone Saw) is the headline benchmark | Accepted |
 | D13 | 2026-10-05 | Fix P5 re-cutting after Fix It; Sponge only at `cant_see` | Accepted |
+| D14 | 2026-10-05 | `minimal` Antiseptic becomes the default mode | Accepted, not yet applied |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -117,3 +118,10 @@ Choices someone might later question, with the reason and what would reopen them
 
   Tools per success rose because the advisor now wins the long surgeries it used to lose; on the same cells it uses about 1.2 more tools per success than the Train-E baseline (0.6 more in `minimal` Antiseptic mode). `minimal` Antiseptic mode scored slightly better (96.6% owner's setup, 68.7% full grid, fewer tools); the default stays `draft` until the owner decides. Zero illegal moves in every run.
 - **Revisit if:** M3's death analysis shows deaths from a stopped heart behind a `cant_see` site, especially at low skill.
+
+## D14. `minimal` Antiseptic becomes the default mode
+
+- **Context:** D13's benchmark ran both Antiseptic modes. `minimal` scored slightly better everywhere: 96.6% against 96.2% in the owner's setup, 68.7% against 67.7% over the full grid, and about 0.45 fewer tools per success.
+- **Decision:** the owner chose `minimal` as the default.
+- **Status:** accepted, not yet applied. The code default is still `draft`. Switching it is an open task in [PLAN.md](../PLAN.md) (M3): change `Config.antiseptic_mode`'s default, make the `advisor` policy use it, keep `draft` selectable, re-run the benchmarks and save new comparison reports.
+- **Revisit if:** M3's death analysis ties deaths to an unclean site or infection.
