@@ -1,0 +1,27 @@
+[
+  {
+    "diagnostic": "Heart Attack",
+    "scan_text": "Patient had a heart attack.",
+    "fix_text": "The heart is now exposed for operating.",
+    "post_fix_text": "You grafted in some nice new arteries!",
+    "incisions_needed": 2
+  },
+  {
+    "diagnostic": "Broken Leg",
+    "scan_text": "Patient broke his leg.",
+    "patient_fixed": true,
+    "bleeding": 1,
+    "broken": 1,
+    "shattered": 1,
+    "incisions_needed": 1
+  },
+  {
+    "diagnostic": "Bird Flu",
+    "scan_text": "Patient is showing signs of the bird flu.",
+    "patient_fixed": true,
+    "flu": true,
+    "temperature": 104.6,
+    "fever": 2.5,
+    "dirt": 6
+  }
+]
