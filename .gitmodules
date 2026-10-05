@@ -1,0 +1,3 @@
+[submodule "vendor/SurgE"]
+	path = vendor/SurgE
+	url = https://github.com/CantFindDev/SurgE.git
