@@ -1,0 +1,8 @@
+# Store and check out text files with LF on every platform, so Windows and CI
+# see identical bytes and git stops warning about CRLF conversion.
+* text=auto eol=lf
+
+# Windows scripts need CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
