@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from advisor import rules
-from advisor.config import Config
+from advisor.config import FEVER_TREAT_F, Config
 from advisor.forecast import Forecast
 from advisor.knowledge import (
     ANTIBIOTIC_RESISTANT,
@@ -373,7 +373,7 @@ def test_p2_breaks_a_visible_fever(know: Knowledge, make_state: MakeState) -> No
 def test_p2_breaks_a_hidden_fever_when_the_temperature_rose(
     know: Knowledge, make_state: MakeState
 ) -> None:
-    state = make_state(temperature=100.2)
+    state = make_state(temperature=100.6)
     fires(
         rules.rule_p2_break_fever,
         "P2",
@@ -384,6 +384,63 @@ def test_p2_breaks_a_hidden_fever_when_the_temperature_rose(
     silent(rules.rule_p2_break_fever, state, memory_for(know, temperature_delta=0.0))
     silent(rules.rule_p2_break_fever, state, memory_for(know, temperature_delta=-0.3))
     silent(rules.rule_p2_break_fever, state, memory_for(know))
+
+
+def test_p2_waits_for_the_temperature_to_pass_100_4(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # D16: a fever is only treated above the real game's finish threshold.
+    assert FEVER_TREAT_F == 100.4
+    rising = memory_for(know, temperature_delta=0.3)
+    for temperature in (99.5, 100.4):
+        silent(
+            rules.rule_p2_break_fever,
+            make_state(fever="slowly_rising", temperature=temperature),
+            memory_for(know),
+        )
+        silent(rules.rule_p2_break_fever, make_state(temperature=temperature), rising)
+    fires(
+        rules.rule_p2_break_fever,
+        "P2",
+        Tool.LAB_KIT,
+        make_state(fever="slowly_rising", temperature=100.5),
+        memory_for(know),
+    )
+    fires(
+        rules.rule_p2_break_fever,
+        "P2",
+        Tool.ANTIBIOTICS,
+        make_state(fever="slowly_rising", temperature=100.5),
+        memory_for(know, lab_kit_done=True),
+    )
+
+
+def test_p2_gate_is_the_same_under_the_wiki_profile(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    state = make_state(fever="slowly_rising", temperature=100.4)
+    silent(rules.rule_p2_break_fever, state, memory_for(know), WIKI)
+    fires(
+        rules.rule_p2_break_fever,
+        "P2",
+        Tool.LAB_KIT,
+        make_state(fever="slowly_rising", temperature=100.5),
+        memory_for(know),
+        WIKI,
+    )
+
+
+def test_e6_still_fires_on_a_fast_climbing_fever_below_100_4(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # D16 gates P2 only; E6 keeps its own triggers.
+    fires(
+        rules.rule_e6_fever_crisis,
+        "E6",
+        Tool.LAB_KIT,
+        make_state(fever="climbing_fast", temperature=99.5),
+        memory_for(know),
+    )
 
 
 def test_p2_stays_quiet_once_the_fever_is_known_to_be_negative(

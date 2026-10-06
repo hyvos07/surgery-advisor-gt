@@ -2,7 +2,7 @@
 
 The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the full benchmark grid with zero avoidable deaths. Requirements are in [PRD.md](PRD.md); this file is the order of work.
 
-**Current status:** M3 in progress. D15 (close the incisions, then Fix It last) and D14 (minimal Antiseptic by default) are applied. The advisor wins 97.1% in the owner's setup (skill 100, Exquisite Bone Saw) and 71.4% over the full grid, against 28.7% and 22.0% for the Train-E baseline, with zero illegal moves. Next: the side-by-side report and the death analysis.
+**Current status:** M3 in progress. D14 (minimal Antiseptic), D15 (Fix It last) and D16 (fever treated only above 100.4 F) are applied. The advisor wins 97.2% in the owner's setup (skill 100, Exquisite Bone Saw) and 71.4% over the full grid, using 10.1 tools per success where the baseline uses 12.9 on the same wins, against 28.7% and 22.0% for the Train-E baseline, with zero illegal moves. Next: the side-by-side report and the death analysis.
 
 ## Milestones
 
@@ -91,7 +91,7 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 
 - [ ] Fix the top failing rules from M3, re-running the same seeds after each change
 - [ ] Tune safety margins per skill band
-- [ ] Candidate from M3's tools comparison: P2 breaks every positive fever with Lab Kit and Antibiotics, even in short surgeries the baseline finishes below 101 F without them. Propose a guard (break the fever only if it would reach the finish threshold before the surgery can end) and benchmark it
+- [x] Candidate from M3's tools comparison: P2 broke every positive fever with Lab Kit and Antibiotics, even in short surgeries. Done as D16 (owner: treat a fever only above 100.4 F); paired tools per success 12.3 -> 10.1 against the baseline's 12.9, success flat, but 475 more avoidable deaths on long trauma surgeries to check in the M3 death analysis
 - [ ] Confirm zero avoidable deaths across the grid
 - [ ] Record final numbers in the README
 

@@ -63,7 +63,7 @@ When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable
 | ID | Name | Fires when | Tool |
 | --- | --- | --- | --- |
 | P1 | Diagnose | No diagnosis yet | Ultrasound |
-| P2 | Break fever | Fever is positive (fever text shown, or temperature rose since last turn) and not yet known to be negative | Lab Kit if not done, else Antibiotics |
+| P2 | Break fever | Fever is positive (fever text shown, or temperature rose since last turn), not yet known to be negative, and the temperature is above 100.4 F ([D16](decisions.md#d16-treat-a-fever-only-above-1004-f)) | Lab Kit if not done, else Antibiotics |
 | P3 | Fix | Fix It is usable and no incision is open ([D15](decisions.md#d15-close-the-incisions-before-fix-it-and-do-fix-it-last)) | Fix It |
 | P4 | Pin | Shattered bones and an incision open | Pins |
 | P5 | Cut | A cut is needed (see below) and status is `unconscious` or `coming_to` | Scalpel |
@@ -82,6 +82,8 @@ When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable
 - shattered bones are shown and no incision is open.
 
 A malady that needs no Fix It (for example Broken Leg) is cut only to reach shattered bones for Pins. A fixed malady is never cut again: after Fix It, incisions below the count are only Stitches closing the site.
+
+**Fever gate (D16).** P2 treats a fever only when the temperature is strictly above `FEVER_TREAT_F` (100.4 F, the real game's finish threshold), under both the `surge` and `wiki` profiles. The gate covers both Lab Kit and Antibiotics. E6 (climbing fast, or a forecast reaching the crisis temperature) and P11 (at or above the finish threshold) are not gated.
 
 **Close before Fix It (D15).** SurgE unlocks Fix It once the needed incisions are reached and keeps it unlocked, and in the tray, after the incisions are stitched closed, until Fix It succeeds. So once Fix It is unlocked the advisor stops cutting (P5, P9 and P10 go quiet), P4 still pins any shattered bone, P6 closes every incision, and only then does P3 use Fix It with no incision open. The order for a Heart Attack is: cut to the needed count, Stitches back to 0, Fix It last. Each turn with an incision open costs pulse and dirt, and a Fix It skill fail then costs a turn with the site closed.
 
@@ -152,7 +154,7 @@ The forecast is deliberately pessimistic. The benchmark decides whether it is to
 | Tough Skin | Plans one extra incision |
 | Hyperactive | Expects 2 Unconscious turns, not 7; E4 re-doses at the first Coming to |
 | Filthy | Expects the site to go dirty every turn; E7 and P9 fire more often |
-| Antibiotic-resistant | Expects each Antibiotics dose to do half as much, so P2 and E6 dose until the fever is known to be negative |
+| Antibiotic-resistant | Expects each Antibiotics dose to do half as much, so P2 (above 100.4°F, D16) and E6 dose until the fever is known to be negative |
 | Hemophiliac | Treats every bleed as double: E3 and E5 fire one step earlier |
 | Hidden (before Ultrasound) | Assumes neither hidden condition |
 | Nose Job (Ultrasound never usable) | Assumes **both** hidden conditions. Nose Job starts with no fever or bleeding, so the extra caution costs little |

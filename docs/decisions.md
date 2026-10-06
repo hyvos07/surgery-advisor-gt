@@ -17,8 +17,9 @@ Choices someone might later question, with the reason and what would reopen them
 | D11 | 2026-10-05 | `train-e-plus` as a second reference; pure Train-E stays the target | Accepted |
 | D12 | 2026-10-05 | Owner's setup (skill 100, Exquisite Bone Saw) is the headline benchmark | Accepted |
 | D13 | 2026-10-05 | Fix P5 re-cutting after Fix It; Sponge only at `cant_see` | Accepted |
-| D14 | 2026-10-05 | `minimal` Antiseptic becomes the default mode | Accepted, not yet applied |
-| D15 | 2026-10-05 | Close the incisions before Fix It, and do Fix It last | Accepted, not yet applied |
+| D14 | 2026-10-05 | `minimal` Antiseptic becomes the default mode | Accepted, applied in M3 |
+| D15 | 2026-10-05 | Close the incisions before Fix It, and do Fix It last | Accepted, applied in M3 |
+| D16 | 2026-10-06 | Treat a fever only above 100.4 F | Accepted, applied in M3 |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -160,3 +161,23 @@ Choices someone might later question, with the reason and what would reopen them
 
   The gain grows as skill falls (+1.1 points at skill 100, +5.0 at skill 0), where fewer turns with an incision open matter most. Zero illegal moves.
 - **Status:** applied in M3.
+
+## D16. Treat a fever only above 100.4 F
+
+- **Context:** the paired `surg tools` comparison showed P2 spending about 1 Lab Kit and 1 Antibiotics per success on short surgeries (Broken Arm, Heart Attack, Lung Tumor, Nose Job) that the Train-E baseline finishes below 101 F without treating the fever.
+- **Decision:** the owner chose "only use Antibiotics when the temperature is above 100.4 F". 100.4 F is the real game's finish threshold (the `wiki` profile's `success_temp_f`; SurgE's is 101).
+- **Why:** a fever below the finish threshold costs two tools and does nothing for the result unless the surgery runs long enough to push the temperature over it.
+- **Rule change (rule IDs unchanged):** P2 also requires the temperature to be strictly above `FEVER_TREAT_F` (100.4 F, in `config.py`, the same under the `surge` and `wiki` profiles). This gates Lab Kit and Antibiotics alike, since P2 chooses between them. E6 (fever climbing fast, or a forecast reaching the crisis temperature) and P11 (temperature at or above the finish threshold) are unchanged.
+- **Result (benchmark, 200 runs per cell, before and after; paired tools are the advisor and the Train-E baseline on surgeries both win):**
+
+  | | Owner's setup, before | after | Full grid, before | after |
+  | --- | ---: | ---: | ---: | ---: |
+  | Success | 97.1% | 97.2% | 71.43% | 71.36% |
+  | Avoidable deaths | 59 | 61 | 3,352 | 3,827 |
+  | Timeouts | 33 | 15 | 911 | 700 |
+  | Tools per success | 16.0 | 15.2 | 17.7 | 16.6 |
+  | Paired tools per success, advisor vs baseline | 12.0 vs 12.6 | 10.1 vs 12.6 | 12.3 vs 12.9 | 10.1 vs 12.9 |
+
+  Zero illegal moves. Over the full grid the Lab Kit and Antibiotics gap on paired wins fell from about +1 each to +0.17 and +0.18. Success moved by +0.1 points in the owner's setup and -0.07 over the full grid, but the avoidable deaths rose by 475 there, and the short and long surgeries moved in opposite directions: Heart Attack +4.4 points, Nose Job +4.1, Lung Tumor +2.7, Serious Head Injury +1.5, against Serious Trauma -4.1, Broken Leg -2.9, Massive Trauma -2.9, Torn Punching Muscle -2.7 and Gem Cuts -2.1.
+- **Status:** applied in M3.
+- **Revisit if:** deaths from fever or infection rise in the M3 death analysis, or the `antibiotic_resistant` condition loses success.

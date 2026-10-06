@@ -14,7 +14,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from enum import StrEnum
 
-from advisor.config import FEVER_CRISIS_TURNS, NORMAL_TEMPERATURE_F, Config
+from advisor.config import (
+    FEVER_CRISIS_TURNS,
+    FEVER_TREAT_F,
+    NORMAL_TEMPERATURE_F,
+    Config,
+)
 from advisor.forecast import Forecast
 from advisor.knowledge import HEMOPHILIAC
 from advisor.memory import Memory
@@ -202,8 +207,10 @@ def rule_p2_break_fever(
     s: ScreenState, m: Memory, f: Forecast, c: Config
 ) -> Decision | None:
     positive = s.fever is not None or m.temperature_rising
-    if positive and not m.fever_negative:
-        return _fever_decision("P2", m, "Fever is positive and not yet broken")
+    if positive and not m.fever_negative and s.temperature > FEVER_TREAT_F:
+        return _fever_decision(
+            "P2", m, f"Fever is positive and the temperature is above {FEVER_TREAT_F} F"
+        )
     return None
 
 

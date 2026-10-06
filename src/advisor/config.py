@@ -52,6 +52,9 @@ FEVER_UPPER: dict[Fever | None, float] = {
     Fever.CLIMBING_FAST: 4.0,
 }
 FEVER_CRISIS_TURNS = 2  # E6 looks this many turns ahead for the crisis temperature
+# P2 treats a fever only above this temperature, the real game's finish threshold
+# (D16). The same under the `surge` and `wiki` profiles.
+FEVER_TREAT_F = 100.4
 
 # Highest hidden dirt behind each visibility word. `cant_see` is dirt 10 or
 # more, so its entry is that lower bound, not an upper one.
