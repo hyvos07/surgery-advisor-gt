@@ -2,7 +2,7 @@
 
 The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the full benchmark grid with zero avoidable deaths. Requirements are in [PRD.md](PRD.md); this file is the order of work.
 
-**Current status:** M3 in progress. D14 (minimal Antiseptic), D15 (Fix It last) and D16 (fever treated only above 100.4 F) are applied. The advisor wins 97.2% in the owner's setup (skill 100, Exquisite Bone Saw) and 71.4% over the full grid, using 10.1 tools per success where the baseline uses 12.9 on the same wins, against 28.7% and 22.0% for the Train-E baseline, with zero illegal moves. Next: the side-by-side report and the death analysis.
+**Current status:** M3 done; M4 (tuning) is next. D14 (minimal Antiseptic), D15 (Fix It last) and D16 (fever treated only above 100.4 F) are applied. The advisor wins 97.2% in the owner's setup (skill 100, Exquisite Bone Saw) and 71.4% over the full grid, using 10.1 tools per success where the baseline uses 12.9 on the same wins, against 28.7% and 22.0% for the Train-E baseline, with zero illegal moves. Targets were reset from these numbers (D17); M4 starts with the top death causes in `reports/m3-*.md`.
 
 ## Milestones
 
@@ -85,7 +85,7 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 - [x] Deeper death classification: look back several turns, not just the fatal one, to find mistakes made earlier (M1 only checks the fatal turn) (done: `--lookback N`; at 3 turns, 20,219 of 45,696 full-grid deaths are avoidable, 316 of 882 in the owner's setup)
 - [x] Separate modifier run: 27 maladies × 4 modifiers × skill 0 and 100 × 50 runs (done: advisor 71.3%, baseline 22.0%; Stethoscope 86.1%; Exquisite Bone Saw and Tea are the same modifier type in SurgE and score identically)
 - [x] Each death in the report links to the viewer with its settings and seed
-- [ ] Update the targets in PRD section 10 from the real numbers
+- [x] Update the targets in PRD section 10 from the real numbers (done: D17)
 
 ## M4: Tuned MVP
 

@@ -169,15 +169,19 @@ All enum values are lowercase snake case. A field is `null` when the screen does
 
 ## 10. Success metrics
 
-Targets are first guesses. The first benchmark run (milestone M3) will reset them.
+Targets were reset from the M3 benchmark with the owner's agreement ([D17](docs/decisions.md)). "Your setup" is skill 100 with the Exquisite Bone Saw ([D12](docs/decisions.md)).
 
-| Metric | Target |
-| --- | --- |
-| Avoidable deaths (scalpel while awake, anesthetic while unconscious, illegal tool, or a death another legal tool would have prevented) | 0 |
-| Success rate at skill 100, all maladies and conditions | ≥ 95% |
-| Success rate at skill 0 | Beats the Train-E baseline by ≥ 10 points |
-| Average tools per successful surgery | Lower than the Train-E baseline |
-| Decision time | < 10 ms |
+| Metric | Target | M3 result |
+| --- | --- | ---: |
+| Illegal moves (scalpel while awake, anesthetic while unconscious, a tool not in the tray) | 0 | 0 |
+| One-turn avoidable deaths (another usable tool on the fatal turn would have survived it) | ≤ 0.1% of surgeries in the owner's setup, ≤ 1% over the full grid | 0.19%, 2.4% |
+| Success rate in the owner's setup | ≥ 98% | 97.2% |
+| Success rate at skill 100, no modifier, all maladies and conditions | ≥ 95% | 93.7% |
+| Success rate at skill 0 | ≥ 50% | 47.3% |
+| Tools per success on surgeries both the advisor and the Train-E baseline won (same cell and seed) | ≥ 20% fewer than the baseline, and never more than 1 tool worse for any malady | 22% fewer (10.1 against 12.9); worst malady +0.6 (Torn Punching Muscle) |
+| Decision time | < 10 ms | 0.02 ms median, 0.22 ms slowest |
+
+Deaths that a 3-turn lookback finds avoidable (`--lookback 3`) are tracked in every M4 report but have no target, since part of that count is luck.
 
 The benchmark grid is 27 maladies × 6 special conditions × 5 skill levels (0, 25, 50, 75, 100) × 200 seeded runs. Details: [docs/testing.md](docs/testing.md).
 

@@ -20,6 +20,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D14 | 2026-10-05 | `minimal` Antiseptic becomes the default mode | Accepted, applied in M3 |
 | D15 | 2026-10-05 | Close the incisions before Fix It, and do Fix It last | Accepted, applied in M3 |
 | D16 | 2026-10-06 | Treat a fever only above 100.4 F | Accepted, applied in M3 |
+| D17 | 2026-10-06 | Reset the PRD section 10 targets from the M3 benchmark | Accepted |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -181,3 +182,10 @@ Choices someone might later question, with the reason and what would reopen them
   Zero illegal moves. Over the full grid the Lab Kit and Antibiotics gap on paired wins fell from about +1 each to +0.17 and +0.18. Success moved by +0.1 points in the owner's setup and -0.07 over the full grid, but the avoidable deaths rose by 475 there, and the short and long surgeries moved in opposite directions: Heart Attack +4.4 points, Nose Job +4.1, Lung Tumor +2.7, Serious Head Injury +1.5, against Serious Trauma -4.1, Broken Leg -2.9, Massive Trauma -2.9, Torn Punching Muscle -2.7 and Gem Cuts -2.1.
 - **Status:** applied in M3.
 - **Revisit if:** deaths from fever or infection rise in the M3 death analysis, or the `antibiotic_resistant` condition loses success.
+
+## D17. Reset the PRD section 10 targets from the M3 benchmark
+
+- **Context:** the first targets were guesses. M3 measured the advisor (D14, D15 and D16 applied) at 97.2% in the owner's setup, 93.7% at skill 100 and 47.3% at skill 0 with no modifier, 71.4% over the full grid, zero illegal moves, one-turn avoidable deaths of 0.19% (owner's setup) and 2.4% (full grid), 10.1 tools per success against the Train-E baseline's 12.9 on surgeries both won, and 0.02 ms per decision. "Zero avoidable deaths" mixed two things: illegal moves, which must never happen, and deaths another tool might have prevented, which a 3-turn lookback finds in 316 of 882 deaths in the owner's setup and partly reflect luck.
+- **Decision (owner):** zero illegal moves; one-turn avoidable deaths at most 0.1% of surgeries in the owner's setup and 1% over the full grid; success at least 98% in the owner's setup, 95% at skill 100 and 50% at skill 0; at least 20% fewer tools per success than the baseline on paired wins, and never more than 1 tool worse for any malady; decisions under 10 ms. The 3-turn lookback count is tracked without a target.
+- **Why:** each target is measurable with `surg bench`, `surg tools` and `surg report`, sits just beyond the M3 result, and keeps the owner's priority of using as few tools as possible.
+- **Revisit if:** M4 meets every target early, or one proves unreachable without hurting another.
