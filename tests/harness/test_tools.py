@@ -188,6 +188,23 @@ def test_pairing_refuses_reports_that_do_not_line_up() -> None:
         pair_tools(a, other_order)
 
 
+def test_pairing_refuses_a_different_seed_offset_either_way() -> None:
+    a, b = hand_built()
+    shifted = copy.deepcopy(b)
+    shifted["meta"]["seed_offset"] = 1000
+    with pytest.raises(ValueError, match="seed_offset differs"):
+        pair_tools(a, shifted)
+    with pytest.raises(ValueError, match="seed_offset differs"):
+        pair_tools(shifted, a)
+    # A missing key is offset 0; equal offsets pair.
+    zero = copy.deepcopy(b)
+    zero["meta"]["seed_offset"] = 0
+    assert pair_tools(a, zero)["meta"]["seed_offset"] == 0
+    both = copy.deepcopy(a)
+    both["meta"]["seed_offset"] = 1000
+    assert pair_tools(both, shifted)["meta"]["seed_offset"] == 1000
+
+
 def test_pairing_refuses_reports_without_seed_tools() -> None:
     a, b = hand_built()
     old = copy.deepcopy(b)

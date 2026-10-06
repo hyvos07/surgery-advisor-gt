@@ -108,21 +108,29 @@ def grid_from_options(
     )
 
 
-def run_cell(job: tuple[str, Cell, int] | tuple[str, Cell, int, int]) -> Report:
-    """Play `runs` seeded surgeries (seeds 0 to runs-1) of one grid cell.
+def run_cell(
+    job: tuple[str, Cell, int]
+    | tuple[str, Cell, int, int]
+    | tuple[str, Cell, int, int, int],
+) -> Report:
+    """Play `runs` seeded surgeries (seeds offset to offset+runs-1) of one grid cell.
 
-    The job is (policy, cell, runs) and optionally the death lookback (default 1).
+    The job is (policy, cell, runs), then optionally the death lookback (default 1)
+    and the seed offset (default 0).
     """
     policy_name, (malady, condition, skill, modifier), runs, *rest = job
     lookback = rest[0] if rest else 1
+    seed_offset = rest[1] if len(rest) > 1 else 0
     outcomes = dict.fromkeys(OUTCOMES, 0)
     tools_on_success = turns = illegal_moves = skill_fails = 0
     fewest: int | None = None
     tools_success: Counter[str] = Counter()
     tools_all: Counter[str] = Counter()
     deaths = []
-    seed_tools: list[list[int] | None] = []  # one entry per seed, for pairing
-    for seed in range(runs):
+    # One entry per seed, for pairing. Indexed by position, not by seed: entry i is
+    # seed `seed_offset + i`. Reports are only paired when their offsets match.
+    seed_tools: list[list[int] | None] = []
+    for seed in range(seed_offset, seed_offset + runs):
         last_rules: deque[str] = deque(maxlen=3)
         result = run_surgery(
             Settings(malady, condition, skill, modifier, seed),
@@ -219,14 +227,20 @@ def run_grid(
     workers: int | None = None,
     progress: Callable[[int, int], None] | None = None,
     lookback: int = 1,
+    seed_offset: int = 0,
 ) -> Report:
-    """Run every cell of the grid; `workers=1` runs in this process."""
+    """Run every cell of the grid; `workers=1` runs in this process.
+
+    Each cell plays seeds `seed_offset` to `seed_offset + runs - 1` (D19).
+    """
     policy_by_name(policy_name)  # fail fast on an unknown policy
     if lookback < 1:
         raise ValueError(f"--lookback must be at least 1, got {lookback}")
+    if seed_offset < 0:
+        raise ValueError(f"--seed-offset must be at least 0, got {seed_offset}")
     grid = grid or full_grid()
     cells = grid.cells()
-    jobs = [(policy_name, cell, runs, lookback) for cell in cells]
+    jobs = [(policy_name, cell, runs, lookback, seed_offset) for cell in cells]
     workers = max(1, min(workers or os.cpu_count() or 1, len(jobs)))
 
     started = time.perf_counter()
@@ -252,7 +266,8 @@ def run_grid(
         "meta": {
             "policy": policy_name,
             "runs": runs,
-            "seeds": f"0 to {runs - 1}",
+            "seed_offset": seed_offset,
+            "seeds": f"{seed_offset} to {seed_offset + runs - 1}",
             "max_turns": MAX_TURNS,
             "lookback": lookback,
             "grid": grid.as_dict(),
@@ -272,16 +287,18 @@ def run_grid(
 def _check_comparable(
     current: Report,
     saved: Report,
-    keys: tuple[str, ...] = ("runs", "max_turns", "lookback", "grid"),
+    keys: tuple[str, ...] = ("runs", "max_turns", "lookback", "seed_offset", "grid"),
 ) -> None:
-    """Refuse reports made with other run counts, grids, turn caps or lookbacks.
+    """Refuse reports made with other run counts, grids, turn caps, lookbacks or seeds.
 
     Reports saved before `--lookback` existed have no such key; they used 1.
+    Reports saved before `--seed-offset` existed have none either; they used 0.
     `keys` narrows what must match (`surg report` leaves the lookback out).
     """
+    missing = {"lookback": 1, "seed_offset": 0}
     for key in keys:
-        now = current["meta"].get(key, 1 if key == "lookback" else None)
-        then = saved["meta"].get(key, 1 if key == "lookback" else None)
+        now = current["meta"].get(key, missing.get(key))
+        then = saved["meta"].get(key, missing.get(key))
         if now != then:
             raise ValueError(
                 f"cannot compare: {key} differs ({then!r} saved vs {now!r} now)"
@@ -291,8 +308,8 @@ def _check_comparable(
 def compare_reports(current: Report, saved: Report) -> Report:
     """Change in every summary number against a saved report (hard rule 6).
 
-    Refuses reports made with other run counts, grids, turn caps or lookbacks,
-    because their seeds or death classes don't line up.
+    Refuses reports made with other run counts, grids, turn caps, lookbacks or
+    seed offsets, because their seeds or death classes don't line up.
     """
     _check_comparable(current, saved)
 
@@ -506,12 +523,13 @@ def _cell_key(cell: Report) -> Cell:
 def pair_tools(a: Report, b: Report) -> Report:
     """Tools per success on the surgeries both reports won (same cell and seed).
 
-    The reports must come from the same `--runs`, grid and turn cap, and from a
-    version of `surg bench` that records `seed_tools`. Fewer tools is better, so
-    a positive difference means `a` used more. The death lookback may differ: it
-    changes how deaths are classified, not who wins or which tools they use.
+    The reports must come from the same `--runs`, seed offset, grid and turn cap,
+    and from a version of `surg bench` that records `seed_tools`. Fewer tools is
+    better, so a positive difference means `a` used more. The death lookback may
+    differ: it changes how deaths are classified, not who wins or which tools
+    they use.
     """
-    _check_comparable(a, b, ("runs", "max_turns", "grid"))
+    _check_comparable(a, b, ("runs", "max_turns", "seed_offset", "grid"))
     for report in (a, b):
         if "tool_order" not in report["meta"] or any(
             "seed_tools" not in c for c in report["cells"]
@@ -569,6 +587,7 @@ def pair_tools(a: Report, b: Report) -> Report:
             "a": a["meta"]["policy"],
             "b": b["meta"]["policy"],
             "runs": a["meta"]["runs"],
+            "seed_offset": a["meta"].get("seed_offset", 0),
             "grid": a["meta"]["grid"],
             "max_turns": a["meta"]["max_turns"],
             "tool_order": tools,

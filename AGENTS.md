@@ -45,6 +45,7 @@ Python 3.12 or newer is required. SurgE uses 3.12 f-string syntax and fails to i
 | Deeper death check | `uv run surg bench --runs 50 --lookback 3` |
 | Compare tools with another policy | `uv run surg tools reports/advisor.json reports/baseline.json` (both made with the same `--runs` and grid) |
 | Full M3 report | `uv run surg report reports/advisor.json reports/baseline.json` (side by side, death analysis and viewer links; same `--runs` and grid, lookback may differ) |
+| Fresh-seed check (D19) | `uv run surg bench --runs 200 --seed-offset 1000` |
 | Web viewer | `uv run surg web`, then open `http://127.0.0.1:8000` |
 
 Before you finish any change, run lint, format check, type check and unit tests. If you changed anything under `src/advisor/`, also run the quick benchmark and compare it with the last saved report.

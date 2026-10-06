@@ -25,7 +25,7 @@ from harness.runner import AVOIDABLE_DEATH, TIMEOUT, UNLUCKY_DEATH
 
 VIEWER = "http://127.0.0.1:8000/"
 # Unlike `--compare`, the lookback may differ: it never changes who succeeds.
-COMPARABLE = ("runs", "max_turns", "grid")
+COMPARABLE = ("runs", "max_turns", "seed_offset", "grid")
 LAST_TURNS = 3  # how many turns of rules each death entry keeps
 
 
@@ -109,7 +109,7 @@ def side_by_side(a: Report, b: Report) -> Report:
     """Success and death counts of both policies, overall and by group.
 
     The `modifier` group is there only when the grid has more than one modifier.
-    Refuses reports with different runs, grid or turn cap.
+    Refuses reports with different runs, seed offset, grid or turn cap.
     """
     _check_comparable(a, b, COMPARABLE)
     paired = _paired_rows(a, b)
@@ -316,6 +316,7 @@ def build_report(a: Report, b: Report, examples: int = 3) -> Report:
             "a": meta["policy"],
             "b": b["meta"]["policy"],
             "runs": meta["runs"],
+            "seed_offset": meta.get("seed_offset", 0),
             "max_turns": meta["max_turns"],
             "grid": meta["grid"],
             "cells": len(a["cells"]),

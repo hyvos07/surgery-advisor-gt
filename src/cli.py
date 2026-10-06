@@ -53,6 +53,9 @@ def _bench(args: argparse.Namespace) -> int:
     if args.lookback < 1:
         print("surg bench: --lookback must be at least 1", file=sys.stderr)
         return 1
+    if args.seed_offset < 0:
+        print("surg bench: --seed-offset must be at least 0", file=sys.stderr)
+        return 1
     saved = None
     if args.compare:
         saved = json.loads(Path(args.compare).read_text(encoding="utf-8"))
@@ -69,6 +72,7 @@ def _bench(args: argparse.Namespace) -> int:
             workers=args.workers,
             progress=progress,
             lookback=args.lookback,
+            seed_offset=args.seed_offset,
         )
         comparison = bench.compare_reports(report, saved) if saved else None
     except ValueError as error:
@@ -276,6 +280,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=1,
         help="turns to look back to tell avoidable from unlucky deaths "
         "(default: %(default)s, at least 1)",
+    )
+    bench.add_argument(
+        "--seed-offset",
+        type=int,
+        default=0,
+        help="first seed of every cell; each cell plays seeds N to N+runs-1 "
+        "(default: %(default)s, at least 0)",
     )
 
     tools = sub.add_parser(

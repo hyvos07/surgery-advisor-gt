@@ -1,5 +1,6 @@
 """The benchmark runs a seeded grid, reports it, and compares like with like."""
 
+import copy
 import json
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from harness.bench import (
     full_grid,
     grid_from_options,
     render_markdown,
+    run_cell,
     run_grid,
     write_report,
 )
@@ -249,6 +251,81 @@ def test_cli_bench_rejects_bad_grid_options(
 ) -> None:
     assert cli.main(["bench", "--runs", "1", *options]) == 1
     assert "surg bench:" in capsys.readouterr().err
+
+
+HEART = Grid(("Heart Attack",), ("none",), (0,), (None,))
+
+
+def test_seed_offset_shifts_the_seeds_a_cell_plays() -> None:
+    # Baseline on a filthy Heart Attack dies on seeds 5, 7 and 8 among others.
+    cell = ("Heart Attack", "filthy", 0, None)
+    base = run_cell(("baseline", cell, 10))
+    shifted = run_cell(("baseline", cell, 4, 1, 5))
+    # Entry i of seed_tools is seed offset + i.
+    assert shifted["seed_tools"] == base["seed_tools"][5:9]
+    assert shifted["runs"] == 4
+    assert [d["seed"] for d in shifted["deaths"]] == [
+        d["seed"] for d in base["deaths"] if 5 <= d["seed"] < 9
+    ]
+    assert all(d["seed"] >= 5 for d in shifted["deaths"])
+    assert shifted["deaths"], "the cell should have a death in seeds 5-8"
+    # No offset in the job means 0.
+    assert run_cell(("baseline", cell, 4, 1)) == run_cell(("baseline", cell, 4, 1, 0))
+
+
+def test_run_grid_records_the_seed_offset() -> None:
+    plain = run_grid("baseline", 3, HEART, workers=1)["meta"]
+    assert (plain["seed_offset"], plain["seeds"]) == (0, "0 to 2")
+    meta = run_grid("baseline", 3, HEART, workers=1, seed_offset=1000)["meta"]
+    assert (meta["seed_offset"], meta["seeds"]) == (1000, "1000 to 1002")
+    assert "seeds 1000 to 1002" in render_markdown(
+        run_grid("baseline", 3, HEART, workers=1, seed_offset=1000)
+    )
+
+
+def test_run_grid_refuses_a_negative_seed_offset() -> None:
+    with pytest.raises(ValueError, match="--seed-offset"):
+        run_grid("baseline", 1, HEART, workers=1, seed_offset=-1)
+
+
+def test_compare_refuses_a_different_seed_offset_either_way() -> None:
+    zero = run_grid("baseline", 2, HEART, workers=1)
+    five = run_grid("baseline", 2, HEART, workers=1, seed_offset=5)
+    with pytest.raises(ValueError, match="seed_offset differs"):
+        compare_reports(five, zero)
+    with pytest.raises(ValueError, match="seed_offset differs"):
+        compare_reports(zero, five)
+    assert compare_reports(five, five)["overall"]["success_rate"] == 0
+
+
+def test_a_report_without_a_seed_offset_counts_as_offset_0() -> None:
+    zero = run_grid("baseline", 2, HEART, workers=1)
+    old = copy.deepcopy(zero)
+    del old["meta"]["seed_offset"]
+    assert compare_reports(zero, old)["overall"]["success_rate"] == 0
+    assert compare_reports(old, zero)["overall"]["success_rate"] == 0
+    five = run_grid("baseline", 2, HEART, workers=1, seed_offset=5)
+    with pytest.raises(ValueError, match="seed_offset differs"):
+        compare_reports(five, old)
+    with pytest.raises(ValueError, match="seed_offset differs"):
+        compare_reports(old, five)
+
+
+def test_cli_bench_seed_offset(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["bench", "--runs", "1", "--seed-offset", "-1"]) == 1
+    assert "--seed-offset must be at least 0" in capsys.readouterr().err
+    base = tmp_path / "off"
+    options = ["bench", "--policy", "baseline", "--skills", "100", "--runs", "1"]
+    options += ["--workers", "4"]
+    assert cli.main([*options, "--seed-offset", "7", "--out", str(base)]) == 0
+    meta = json.loads((tmp_path / "off.json").read_text(encoding="utf-8"))["meta"]
+    assert (meta["seed_offset"], meta["seeds"]) == (7, "7 to 7")
+    capsys.readouterr()
+    refused = cli.main([*options, "--compare", str(base) + ".json"])
+    assert refused == 1
+    assert "cannot compare: seed_offset differs" in capsys.readouterr().err
 
 
 def test_cli_policy_defaults_to_the_advisor() -> None:

@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 import cli
+from harness.bench import Grid, run_grid
 from harness.report import (
     build_report,
     death_analysis,
@@ -238,6 +239,33 @@ def test_reports_must_share_runs_grid_and_turn_cap() -> None:
     missing["cells"] = missing["cells"][:-1]
     with pytest.raises(ValueError, match="same cells"):
         side_by_side(a, missing)
+
+
+def test_reports_must_share_the_seed_offset() -> None:
+    a, b = hand_built()
+    shifted = copy.deepcopy(b)
+    shifted["meta"]["seed_offset"] = 1000
+    with pytest.raises(ValueError, match="seed_offset differs"):
+        side_by_side(a, shifted)
+    with pytest.raises(ValueError, match="seed_offset differs"):
+        side_by_side(shifted, a)
+    zero = copy.deepcopy(b)
+    zero["meta"]["seed_offset"] = 0  # same as the key missing from `a`
+    assert build_report(a, zero)["meta"]["seed_offset"] == 0
+    both = copy.deepcopy(a)
+    both["meta"]["seed_offset"] = 1000
+    assert build_report(both, shifted)["meta"]["seed_offset"] == 1000
+
+
+def test_a_death_link_carries_the_real_seed_not_the_position() -> None:
+    grid = Grid(("Heart Attack",), ("filthy",), (0,), (None,))
+    run = run_grid("baseline", 6, grid, workers=1, seed_offset=5)
+    deaths = run["cells"][0]["deaths"]
+    assert deaths and all(5 <= d["seed"] < 11 for d in deaths)
+    found = death_analysis(run)["deaths"]
+    assert [d["seed"] for d in found] == [d["seed"] for d in deaths]
+    for d in found:
+        assert f"&seed={d['seed']}&" in d["link"]
 
 
 def test_a_different_lookback_is_allowed() -> None:
