@@ -28,6 +28,7 @@ cd <this repo>
 uv sync
 
 uv run surg web                     # step-by-step viewer at http://127.0.0.1:8000
+                                    # Manual tab: get advice while playing the real game
 uv run surg play --skill 40 --seed 7  # one surgery in the terminal
 uv run surg bench --runs 5          # quick benchmark
 ```

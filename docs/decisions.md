@@ -24,7 +24,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D18 | 2026-10-06 | In M4, success comes before tools | Accepted |
 | D19 | 2026-10-06 | Tune on seeds 0-199, report the final numbers on fresh seeds | Accepted |
 | D20 | 2026-10-06 | License the repository under AGPL-3.0 | Accepted, not yet applied |
-| D21 | 2026-10-06 | Optional manual-input mode in the web viewer | Accepted, not yet applied |
+| D21 | 2026-10-06 | Optional manual-input mode in the web viewer | Accepted, applied in M4 |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -220,5 +220,5 @@ Choices someone might later question, with the reason and what would reopen them
 - **Context:** the advisor only played SurgE surgeries. To use it beside the real game, the player has to tell it what the screen shows.
 - **Decision (owner):** add a manual mode to `surg web` as an option next to the simulator mode, which stays unchanged. The player enters the screen-state fields (PRD section 8), presses Advise and gets the tool, rule and reason; memory carries across turns until a new patient is started.
 - **Why:** it makes the MVP usable while playing without any connection to the game, so hard rule 8 is untouched.
-- **Status:** accepted, not yet applied (M4, PRD FR21).
+- **Status:** applied in M4: a Manual tab in `surg web`, with the tool tray pre-ticked from the game's tray rules (the same as `harness/observe.py`), which the player can override.
 

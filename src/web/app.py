@@ -3,7 +3,7 @@
 import secrets
 import threading
 from collections import Counter, OrderedDict
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -11,9 +11,30 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from advisor import knowledge
+from advisor.config import Config
+from advisor.engine import decide
+from advisor.memory import CONFIRMATIONS, SKILL_FAIL_MARKER
+from advisor.state import (
+    Bleeding,
+    Fever,
+    Modifier,
+    Pulse,
+    ScreenState,
+    Site,
+    Status,
+    Tool,
+    Visibility,
+)
 from harness.baseline import parse_tips
 from harness.observe import observe
-from harness.runner import POLICY_NAMES, Surgery, policy_by_name, resolve_settings
+from harness.runner import (
+    POLICY_NAMES,
+    AdvisorPolicy,
+    Surgery,
+    policy_by_name,
+    resolve_settings,
+)
 from harness.surge import (
     CONDITION_NAMES,
     MALADY_NAMES,
@@ -196,3 +217,157 @@ def restart(surgery_id: str) -> dict[str, Any]:
         entry.log = []
         entry.final_state = None
         return _view(surgery_id, entry)
+
+
+# --- Manual mode (D21): the player types what their own game screen shows. ---
+# Nothing here talks to the game; the page only sends the screen-state fields.
+
+MAX_MANUAL_SESSIONS = 100  # the oldest is dropped beyond this
+RESULT_WORKED = "worked"
+RESULT_SKILL_FAIL = "skill_fail"
+RESULTS = (RESULT_WORKED, RESULT_SKILL_FAIL)
+# Used as `last_tool_text` when the player says a tool worked and it has no
+# confirmation text in `memory.CONFIRMATIONS` (memory then changes nothing, as in
+# the game).
+NEUTRAL_WORKED_TEXT = "The tool worked (reported by the player)."
+SKILL_FAIL_TEXT = (
+    f"{SKILL_FAIL_MARKER}]: the tool did nothing (reported by the player)."
+)
+
+
+class ManualAdviseRequest(BaseModel):
+    """`state` is a PRD section 8 screen state; the other two describe the last turn."""
+
+    state: Any
+    used_tool: str | None = None
+    result: str | None = None
+
+
+@dataclass
+class ManualEntry:
+    policy: AdvisorPolicy = field(default_factory=AdvisorPolicy)
+    config_key: tuple[int, str | None] | None = None
+    history: list[dict[str, Any]] = field(default_factory=list)
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+
+_manual: OrderedDict[str, ManualEntry] = OrderedDict()
+
+
+def _manual_entry(session_id: str) -> ManualEntry:
+    with _registry_lock:
+        entry = _manual.get(session_id)
+    if entry is None:
+        raise HTTPException(
+            404, "no such manual session (the server forgets them on restart)"
+        )
+    return entry
+
+
+def _confirmation_text(tool: Tool | None, result: str) -> str:
+    if result == RESULT_SKILL_FAIL:
+        return SKILL_FAIL_TEXT
+    return CONFIRMATIONS.get(tool, NEUTRAL_WORKED_TEXT) if tool else NEUTRAL_WORKED_TEXT
+
+
+@app.get("/manual/options")
+def manual_options() -> dict[str, Any]:
+    """Everything the manual form offers as a choice, in PRD section 8 order."""
+    known = knowledge.load()
+    return {
+        "pulse": [v.value for v in Pulse],
+        "status": [v.value for v in Status],
+        "site": [v.value for v in Site],
+        "visibility": [v.value for v in Visibility],
+        "bleeding": [v.value for v in Bleeding],
+        "fever": [v.value for v in Fever],
+        "modifier": [v.value for v in Modifier],
+        "tools": [v.value for v in Tool],
+        "maladies": [
+            {
+                "name": m.name,
+                "scan_text": m.scan_text,
+                "fix_text": m.fix_text,
+                "post_fix_text": m.post_fix_text,
+            }
+            for m in known.maladies
+        ],
+        "conditions": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "text": c.text,
+                "visible_at_start": c.visible_at_start,
+            }
+            for c in known.conditions
+        ],
+    }
+
+
+@app.post("/manual")
+def manual_start() -> dict[str, str]:
+    session_id = secrets.token_urlsafe(6)
+    with _registry_lock:
+        _manual[session_id] = ManualEntry()
+        while len(_manual) > MAX_MANUAL_SESSIONS:
+            _manual.popitem(last=False)
+    return {"id": session_id}
+
+
+@app.post("/manual/{session_id}/reset")
+def manual_reset(session_id: str) -> dict[str, Any]:
+    """A new patient: empty memory and history. The skill and modifier come from
+    the next state, so the form's values carry over."""
+    entry = _manual_entry(session_id)
+    with entry.lock:
+        entry.policy = AdvisorPolicy()
+        entry.config_key = None
+        entry.history = []
+    return {"id": session_id, "turn": 0, "history": []}
+
+
+@app.post("/manual/{session_id}/advise")
+def manual_advise(session_id: str, request: ManualAdviseRequest) -> dict[str, Any]:
+    entry = _manual_entry(session_id)
+    try:
+        state = ScreenState.from_dict(request.state)
+        used = None if request.used_tool is None else Tool(request.used_tool)
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from None
+    if request.result is not None and request.result not in RESULTS:
+        raise HTTPException(400, f"result must be one of {', '.join(RESULTS)} or null")
+    with entry.lock:
+        policy = entry.policy
+        memory = policy.memory
+        # The player may have used another tool than the one advised; memory must
+        # confirm the tool that was really used.
+        if used is not None and (
+            memory.last_decision is None or memory.last_decision.tool is not used
+        ):
+            policy.note_override(used.value)
+        previous = memory.last_decision.tool if memory.last_decision else None
+        if request.result is not None and not state.last_tool_text.strip():
+            state = replace(
+                state, last_tool_text=_confirmation_text(previous, request.result)
+            )
+        # Fixed per patient, but rebuilt if the player corrects the skill or modifier.
+        key = (state.skill_level, state.modifier.value if state.modifier else None)
+        if policy.config is None or entry.config_key != key:
+            policy.config = Config.for_patient(*key)
+            entry.config_key = key
+        decision = decide(state, memory, policy.config)
+        row = {
+            "turn": memory.turn,
+            "tool": decision.tool.value,
+            "rule": decision.rule,
+            "reason": decision.reason,
+            "used_tool": previous.value if previous and request.result else None,
+            "result": request.result,
+            "state": {k: v for k, v in state.to_dict().items() if k in _WATCHED},
+        }
+        entry.history.append(row)
+        return {
+            "decision": decision.to_dict(),
+            "turn": memory.turn,
+            "history": list(entry.history),
+        }

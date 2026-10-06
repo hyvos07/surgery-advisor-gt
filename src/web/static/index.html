@@ -58,10 +58,28 @@
   .end.success { border-left-color: var(--good); } .end.dead { border-left-color: var(--bad); }
   .muted { color: var(--muted); }
   .error { color: var(--bad); margin: 8px 0 0; }
+  main[hidden], #mform [hidden] { display: none; }
+  .modes { max-width: 1100px; margin: 0 auto; padding: 12px 16px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+  .modes button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  #manual { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+  @media (max-width: 800px) { #manual { grid-template-columns: minmax(0, 1fr); } }
+  #mform select, #mform input:not([type="checkbox"]) { width: 100%; }
+  #mform .wide { grid-column: 1 / -1; }
+  #mform fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0; padding: 8px 10px; min-width: 0; }
+  #mform legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
+  .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px 10px; }
+  .check { display: flex; flex-direction: row; align-items: center; gap: 6px; font-size: 14px; color: var(--ink); }
+  .hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+  .bigtool { font-size: 32px; font-weight: 700; line-height: 1.2; }
+  .history td { word-break: break-word; }
 </style>
 </head>
 <body>
-<main>
+<nav class="modes" role="tablist" aria-label="Mode">
+  <button type="button" id="tab-sim" role="tab" aria-selected="true" aria-controls="sim">Simulator</button>
+  <button type="button" id="tab-manual" role="tab" aria-selected="false" aria-controls="manual">Manual (your game)</button>
+</nav>
+<main id="sim">
   <h1>Surgery Advisor <span class="muted" style="font-weight:400;font-size:14px">step-by-step viewer</span></h1>
 
   <div class="stack">
@@ -123,6 +141,73 @@
         <button class="primary" type="submit">Start</button>
       </form>
       <p class="error" id="error" role="alert"></p>
+    </section>
+  </div>
+</main>
+
+<main id="manual" hidden>
+  <h1>Manual mode <span class="muted" style="font-weight:400;font-size:14px">type what your game screen shows, get the next tool</span></h1>
+
+  <div class="stack">
+    <section>
+      <h2>Your screen</h2>
+      <form id="mform">
+        <label>Skill (0-100) <input id="m-skill" type="number" min="0" max="100" step="1" placeholder="0-100" required></label>
+        <label>Modifier <select id="m-modifier"><option value="">none</option></select></label>
+        <label>Pulse <select id="m-pulse"></select></label>
+        <label>Status <select id="m-status"></select></label>
+        <label>Temperature (°F) <input id="m-temp" type="number" step="0.1" value="98.6" required></label>
+        <label>Operation site <select id="m-site"></select></label>
+        <label>Visibility <select id="m-visibility"></select></label>
+        <label>Incisions <input id="m-incisions" type="number" min="0" step="1" value="0" required></label>
+        <label>Bleeding <select id="m-bleeding"><option value="">none</option></select></label>
+        <label>Fever <select id="m-fever"><option value="">none</option></select></label>
+        <label>Bones <select id="m-bones"><option value="unknown">unknown (not scanned)</option><option value="known">scanned</option></select></label>
+        <label>Broken <input id="m-broken" type="number" min="0" step="1" value="0" disabled></label>
+        <label>Shattered <input id="m-shattered" type="number" min="0" step="1" value="0" disabled></label>
+        <label class="wide">Diagnosis text on screen <select id="m-scan"></select></label>
+        <label class="wide" id="m-scan-custom-box" hidden>Other diagnosis text <input id="m-scan-custom" type="text" autocomplete="off"></label>
+        <label class="wide">Special condition text <select id="m-cond"><option value="">none shown</option></select></label>
+        <fieldset class="wide">
+          <legend>Usable tools</legend>
+          <div class="checks" id="m-tools"></div>
+          <p class="hint">Ticked from the game's tray rules; check the boxes match your tray.</p>
+        </fieldset>
+        <fieldset class="wide">
+          <legend>Last tool result</legend>
+          <div class="controls">
+            <label>Result <select id="m-result">
+              <option value="">no tool yet (first turn)</option>
+              <option value="worked">worked</option>
+              <option value="skill_fail">skill fail</option>
+            </select></label>
+            <label>Tool used <select id="m-used"><option value="">the advised tool</option></select></label>
+          </div>
+          <p class="hint">Change the tool only if you used a different one than advised.</p>
+        </fieldset>
+        <div class="controls wide">
+          <button class="primary" type="submit" id="m-advise">Advise</button>
+          <button type="button" id="m-new">New patient</button>
+        </div>
+      </form>
+      <p class="error" id="m-error" role="alert"></p>
+    </section>
+
+    <section class="advice" aria-live="polite">
+      <h2>Advisor</h2>
+      <div id="m-advice"><span class="muted">Fill in your screen and press Advise.</span></div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section>
+      <h2>History</h2>
+      <div class="logwrap">
+        <table class="history">
+          <thead><tr><th>Turn</th><th>Tool</th><th>Rule</th><th>Reason and screen</th></tr></thead>
+          <tbody id="m-history"></tbody>
+        </table>
+      </div>
     </section>
   </div>
 </main>
@@ -327,7 +412,228 @@ $("restart").addEventListener("click", async () => {
 $("speed").addEventListener("input", () => { $("speedlabel").textContent = $("speed").value; });
 $("traine").addEventListener("change", renderTips);
 
+// ---- Manual mode: the player types what their own game shows ----
+const manual = { id: null, advised: null, busy: false, history: [], fixTexts: new Set() };
+const CUSTOM = "__custom__";
+
+function option(value, text) {
+  const node = el("option", text);
+  node.value = value;
+  return node;
+}
+
+function fillWords(id, values) { values.forEach((v) => $(id).append(option(v, words(v)))); }
+
+function showManualError(message) { $("m-error").textContent = message || ""; }
+
+function setMode(mode) {
+  const isManual = mode === "manual";
+  $("sim").hidden = isManual;
+  $("manual").hidden = !isManual;
+  $("tab-sim").setAttribute("aria-selected", String(!isManual));
+  $("tab-manual").setAttribute("aria-selected", String(isManual));
+  const q = new URLSearchParams(location.search);
+  if (isManual) q.set("mode", "manual"); else q.delete("mode");
+  const text = q.toString();
+  try { history.replaceState(null, "", text ? "?" + text : location.pathname); } catch (error) { /* a preview may block it */ }
+  if (isManual) { stopPlaying(); render(); }
+}
+
+async function initManual() {
+  const o = await api("/manual/options");
+  fillWords("m-modifier", o.modifier);
+  ["pulse", "status", "site", "visibility", "bleeding", "fever"].forEach((k) => fillWords("m-" + k, o[k]));
+  $("m-pulse").value = "steady";
+  $("m-status").value = "awake";
+  $("m-site").value = "not_sanitized";
+  $("m-visibility").value = "clear";
+  const scan = $("m-scan");
+  scan.append(option("", "Not diagnosed yet"));
+  o.maladies.forEach((m) => {
+    const group = document.createElement("optgroup");
+    group.label = m.name;
+    const seen = new Set();
+    if (m.fix_text) manual.fixTexts.add(squash(m.fix_text));
+    [["Scan", m.scan_text], ["Fix it", m.fix_text], ["After fix", m.post_fix_text]].forEach(([kind, text]) => {
+      if (text && !seen.has(text)) { seen.add(text); group.append(option(text, kind + ": " + text)); }
+    });
+    scan.append(group);
+  });
+  scan.append(option(CUSTOM, "Other text (type it below)"));
+  o.conditions.filter((c) => c.id !== "none").forEach((c) => {
+    $("m-cond").append(option(c.text, c.text + (c.visible_at_start ? "" : " (hidden until found)")));
+  });
+  o.tools.forEach((tool) => {
+    const box = el("label", undefined, "check");
+    const input = document.createElement("input");
+    input.type = "checkbox"; input.value = tool; input.checked = true;
+    box.append(input, el("span", label(tool)));
+    $("m-tools").append(box);
+    $("m-used").append(option(tool, label(tool)));
+  });
+  applyTray();
+}
+
+const squash = (text) => text.replace(/[​‌‍﻿]/g, "").split(/\s+/).filter(Boolean).join(" ");
+
+// The tools the game's tray enables, copied from `usable_tools()` in
+// src/harness/observe.py (D10): Defibrillator only with a stopped heart, Pins and
+// Clamp only with an open incision, Ultrasound only before a diagnosis, Lab Kit
+// until one has worked, Antibiotics after it, Fix It while the screen shows a
+// malady's fix text, and nothing but the Sponge when you can't see.
+function defaultTray(screen) {
+  if (screen.visibility === "cant_see") return new Set(["sponge"]);
+  const on = new Set(["sponge", "anesthetic", "stitches", "scalpel", "antiseptic", "transfusion", "splint"]);
+  if (screen.status === "heart_stopped") on.add("defibrillator");
+  if (screen.scan === null) on.add("ultrasound");
+  if (screen.incisions > 0) { on.add("pins"); on.add("clamp"); }
+  if (screen.labDone) on.add("antibiotics"); else on.add("lab_kit");
+  if (screen.scan !== null && screen.fixTexts.has(squash(screen.scan))) on.add("fix_it");
+  return on;
+}
+
+function scanChoice() {
+  const choice = $("m-scan").value;
+  const text = choice === CUSTOM ? $("m-scan-custom").value.trim() : choice;
+  return text || null;
+}
+
+// Has a Lab Kit worked: in an earlier turn, or as the result about to be sent?
+function labKitDone() {
+  if (manual.history.some((row) => row.used_tool === "lab_kit" && row.result === "worked")) return true;
+  const pending = $("m-result").value ? ($("m-used").value || manual.advised) : null;
+  return pending === "lab_kit" && $("m-result").value === "worked";
+}
+
+function applyTray() {
+  const on = defaultTray({
+    visibility: $("m-visibility").value, status: $("m-status").value,
+    incisions: Number($("m-incisions").value) || 0, scan: scanChoice(),
+    fixTexts: manual.fixTexts, labDone: labKitDone(),
+  });
+  $("m-tools").querySelectorAll("input").forEach((box) => { box.checked = on.has(box.value); });
+}
+
+function numberField(id, name) {
+  const raw = $(id).value;
+  if (raw === "" || !Number.isFinite(Number(raw))) throw new Error("Enter a number for " + name + ".");
+  return Number(raw);
+}
+
+function readManualState() {
+  const known = $("m-bones").value === "known";
+  const scan = scanChoice();
+  return {
+    skill_level: numberField("m-skill", "skill"),
+    modifier: $("m-modifier").value || null,
+    special_condition_text: $("m-cond").value || null,
+    scan_text: scan,
+    pulse: $("m-pulse").value,
+    status: $("m-status").value,
+    temperature: numberField("m-temp", "temperature"),
+    site: $("m-site").value,
+    visibility: $("m-visibility").value,
+    incisions: numberField("m-incisions", "incisions"),
+    bones: known ? { broken: numberField("m-broken", "broken bones"), shattered: numberField("m-shattered", "shattered bones") } : null,
+    bleeding: $("m-bleeding").value || null,
+    fever: $("m-fever").value || null,
+    last_tool_text: "",
+    usable_tools: [...$("m-tools").querySelectorAll("input:checked")].map((box) => box.value),
+  };
+}
+
+function renderManualAdvice(decision, turn) {
+  const box = $("m-advice");
+  box.replaceChildren();
+  if (!decision) { box.append(el("span", "Fill in your screen and press Advise.", "muted")); return; }
+  const head = el("div");
+  head.append(el("span", label(decision.tool), "bigtool"), el("span", decision.rule, "rule"));
+  box.append(head, el("div", decision.reason), el("div", "Turn " + turn, "muted"));
+}
+
+function screenSummary(s) {
+  const bones = s.bones === null ? "bones unknown" : s.bones.broken + " broken, " + s.bones.shattered + " shattered";
+  return [words(s.pulse), words(s.status), s.temperature + " °F", "site " + words(s.site),
+    words(s.visibility), s.incisions + " incisions", bones,
+    "bleeding " + words(s.bleeding), "fever " + words(s.fever)].join(" · ");
+}
+
+function renderManualHistory(history) {
+  const body = $("m-history");
+  body.replaceChildren();
+  [...history].reverse().forEach((row) => {
+    const note = row.result ? "Last turn: " + (row.used_tool ? label(row.used_tool) : "the tool") + " " + words(row.result) + ". " : "";
+    const cell = el("td");
+    cell.append(el("div", row.reason), el("div", note + screenSummary(row.state), "muted"));
+    const tr = el("tr");
+    tr.append(el("td", String(row.turn)), el("td", label(row.tool)), el("td", row.rule), cell);
+    body.append(tr);
+  });
+}
+
+function afterAdvice(decision) {
+  manual.advised = decision.tool;
+  $("m-used").options[0].textContent = "the advised tool (" + label(decision.tool) + ")";
+  $("m-used").value = "";
+  $("m-result").value = "worked";  // the usual answer for the next turn
+}
+
+async function advise() {
+  if (manual.busy) return;
+  manual.busy = true; showManualError("");
+  $("m-advise").disabled = true;
+  try {
+    const state = readManualState();
+    if (!manual.id) manual.id = (await api("/manual", "POST")).id;
+    const result = $("m-result").value || null;
+    const used = result ? ($("m-used").value || manual.advised) : null;
+    const out = await api("/manual/" + manual.id + "/advise", "POST", { state, used_tool: used, result });
+    renderManualAdvice(out.decision, out.turn);
+    renderManualHistory(out.history);
+    manual.history = out.history;
+    afterAdvice(out.decision);
+    applyTray();  // back to the game's tray rules; boxes changed by hand are reset here
+  } catch (error) {
+    showManualError(error.message);
+    if (/no such manual session/.test(error.message)) manual.id = null;
+  }
+  manual.busy = false;
+  $("m-advise").disabled = false;
+}
+
+async function newPatient() {
+  showManualError("");
+  try { if (manual.id) await api("/manual/" + manual.id + "/reset", "POST"); }
+  catch (error) { manual.id = null; }
+  manual.advised = null;
+  manual.history = [];
+  $("m-used").options[0].textContent = "the advised tool";
+  $("m-used").value = "";
+  $("m-result").value = "";
+  applyTray();
+  renderManualAdvice(null);
+  renderManualHistory([]);
+}
+
+$("tab-sim").addEventListener("click", () => setMode("simulator"));
+$("tab-manual").addEventListener("click", () => setMode("manual"));
+$("mform").addEventListener("submit", (event) => { event.preventDefault(); advise(); });
+$("m-new").addEventListener("click", newPatient);
+$("m-bones").addEventListener("change", () => {
+  const known = $("m-bones").value === "known";
+  $("m-broken").disabled = !known; $("m-shattered").disabled = !known;
+});
+$("m-scan").addEventListener("change", () => { $("m-scan-custom-box").hidden = $("m-scan").value !== CUSTOM; });
+// Any field the tray depends on resets the ticks to the game's rules.
+["m-visibility", "m-status", "m-incisions", "m-scan", "m-scan-custom", "m-result", "m-used"].forEach((id) => {
+  $(id).addEventListener("input", applyTray);
+  $(id).addEventListener("change", applyTray);
+});
+
 async function init() {
+  const manualMode = new URLSearchParams(location.search).get("mode") === "manual";
+  if (manualMode) setMode("manual");
+  initManual().catch((error) => showManualError(error.message));
   const options = await api("/options");
   tools = options.tools;
   const fill = (id, values) => values.forEach((v) => { const o = el("option", v); o.value = v; $(id).append(o); });
@@ -341,7 +647,7 @@ async function init() {
   if (!$("policy").value) $("policy").value = options.policies[0];  // an unknown policy in the link
   render();
   // A link from a benchmark report starts exactly that surgery.
-  if (linked.some((k) => q.has(k))) $("form").requestSubmit();
+  if (!manualMode && linked.some((k) => q.has(k))) $("form").requestSubmit();
 }
 init().catch((error) => showError(error.message));
 </script>

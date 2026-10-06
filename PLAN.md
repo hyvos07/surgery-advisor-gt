@@ -95,8 +95,8 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 - [ ] From M3 (owner: M4, not before): Brainworms in the owner's setup, 169 of 316 avoidable deaths, where Antibiotics would have beaten E3's Transfusion; consider letting the fever rules skip the 100.4 F gate (D16) for fevers that keep climbing
 - [ ] From M3 (owner: M4, not before): a Sponge was the better tool in 12,839 of 20,219 full-grid avoidable deaths, mostly instead of E6's fever tool or E1's Defibrillator with the site almost unseeable (D13's revisit condition)
 - [ ] Meet the D17 targets (PRD section 10), including one-turn avoidable deaths of at most 0.1% in the owner's setup and 1% over the full grid
-- [ ] Seed offset for `surg bench` (D19); tune on seeds 0-199 and report the final numbers on seeds 1000-1199
-- [ ] Manual-input mode in the web viewer, as an option beside the simulator mode (D21, PRD FR21)
+- [x] Seed offset for `surg bench` (D19); tune on seeds 0-199 and report the final numbers on seeds 1000-1199 (`--seed-offset`)
+- [x] Manual-input mode in the web viewer, as an option beside the simulator mode (D21, PRD FR21)
 - [ ] Add the AGPL-3.0 `LICENSE` and update the README credits (D20), before the repository goes public
 - [ ] Record final numbers in the README (fresh seeds, D19)
 

@@ -98,9 +98,10 @@ uv run surg bench --runs 20 --compare reports/baseline.json   # before/after a c
 uv run surg bench --policy baseline --runs 200                # score the baseline
 uv run surg bench --runs 200 --out reports/baseline           # write reports/baseline.json and .md
 uv run surg bench --skills 100 --modifiers exquisite_bone_saw --runs 200   # the owner's setup
+uv run surg bench --runs 200 --seed-offset 1000 --out reports/final-advisor   # fresh seeds 1000-1199 (D19)
 ```
 
-`--policy` is `advisor` (the default, minimal Antiseptic), `advisor-draft-antiseptic`, `baseline` or `train-e-plus`. `--skills` takes a comma list of levels (default `0,25,50,75,100`) and `--modifiers` a comma list of modifier ids or `none` (default `none`); each builds the grid's skill and modifier axes. The owner's setup is 27 maladies × 6 conditions × skill 100 × the Exquisite Bone Saw: 162 cells.
+`--seed-offset N` (a whole number, 0 or more, default 0) makes every cell play seeds N to N+runs−1 instead of 0 to runs−1. `--policy` is `advisor` (the default, minimal Antiseptic), `advisor-draft-antiseptic`, `baseline` or `train-e-plus`. `--skills` takes a comma list of levels (default `0,25,50,75,100`) and `--modifiers` a comma list of modifier ids or `none` (default `none`); each builds the grid's skill and modifier axes. The owner's setup is 27 maladies × 6 conditions × skill 100 × the Exquisite Bone Saw: 162 cells.
 
 ### Grid
 
@@ -110,7 +111,7 @@ uv run surg bench --skills 100 --modifiers exquisite_bone_saw --runs 200   # the
 | Special condition | `none`, `tough_skin`, `antibiotic_resistant`, `filthy`, `hyperactive`, `hemophiliac` | 6 |
 | Skill level | 0, 25, 50, 75, 100 | 5 |
 | Modifier | None | 1 |
-| Runs per cell | Seeds 0 to N−1 | 200 |
+| Runs per cell | Seeds `--seed-offset` to offset+N−1 (default 0 to N−1) | 200 |
 
 That is 810 cells and 162,000 surgeries. Cells run in parallel across CPU cores.
 
@@ -118,11 +119,13 @@ A separate modifier run covers 27 maladies × 4 modifiers × skill 0 and 100 × 
 
 ### Seeds
 
-Run *i* of a cell uses a seed derived from the cell and *i*, so the same grid always replays the same surgeries. Never compare runs with different `--runs` values or grid settings.
+Run *i* of a cell uses a seed derived from the cell and *i*, so the same grid always replays the same surgeries. Never compare runs with different `--runs` values, seed offsets or grid settings.
+
+**Tuning seeds and fresh seeds ([D19](decisions.md#d19-tune-on-seeds-0-199-report-the-final-numbers-on-fresh-seeds)).** Tuning and every before/after comparison use seeds 0-199 (offset 0). The final MVP numbers come from seeds 1000-1199, which tuning never saw: `uv run surg bench --runs 200 --seed-offset 1000 --out reports/final-advisor`. A gap between the two sets of numbers shows overfitting. Report `meta` records `seed_offset` and `seeds` ("1000 to 1199"). A death keeps its real seed, so its viewer link opens the right surgery. `seed_tools` stays indexed by position: entry *i* is seed offset+*i*.
 
 ### Report
 
-Written to `reports/<timestamp>.json` and `reports/<timestamp>.md`, or to `<BASE>.json` and `<BASE>.md` with `--out BASE`. `--compare` refuses a saved report made with a different `--runs`, grid (including `--skills` and `--modifiers`), turn cap or `--lookback`. Every surgery gets a fresh policy, so the advisor's memory never carries over from one seed to the next.
+Written to `reports/<timestamp>.json` and `reports/<timestamp>.md`, or to `<BASE>.json` and `<BASE>.md` with `--out BASE`. `--compare` refuses a saved report made with a different `--runs`, grid (including `--skills` and `--modifiers`), turn cap, `--seed-offset` or `--lookback` (a saved report without `seed_offset` counts as 0). Every surgery gets a fresh policy, so the advisor's memory never carries over from one seed to the next.
 
 The JSON holds the grid, per-cell outcome counts and, for every death, its seed, outcome, the last 3 rules that fired, and its `mistake_turns_back` and `alternative` (see Lookback above). Contents:
 
@@ -145,7 +148,7 @@ uv run surg bench --policy baseline --runs 200 --out reports/baseline
 uv run surg tools reports/advisor.json reports/baseline.json   # writes reports/tools-advisor-vs-baseline.json and .md
 ```
 
-Both reports must come from the same `--runs`, grid and turn cap, or `surg tools` refuses with the same message as `--compare`. The `--lookback` may differ. `--out BASE` writes `BASE.json` and `BASE.md` elsewhere. The first report is *A* and the second *B*. Fewer tools is better, so a positive Difference (A minus B per success) means A uses more.
+Both reports must come from the same `--runs`, `--seed-offset`, grid and turn cap, or `surg tools` refuses with the same message as `--compare`. The `--lookback` may differ. `--out BASE` writes `BASE.json` and `BASE.md` elsewhere. The first report is *A* and the second *B*. Fewer tools is better, so a positive Difference (A minus B per success) means A uses more.
 
 The Markdown has, overall and by skill level, special condition and malady: pairs, the share of surgeries both won, each policy's wins, tools per success on the pairs, the difference, and the fewest tools any success needed. **Where the difference comes from** lists each tool's per-success count for A and B over all pairs, largest gap first, and **Biggest differences by malady** gives each malady's difference with the three tools that explain it most.
 
@@ -165,7 +168,7 @@ uv run surg bench --runs 50 --skills 0,100 --modifiers stethoscope,tea,exquisite
 uv run surg report reports/mod-advisor.json reports/mod-baseline.json --out reports/m3-mod
 ```
 
-The default output is `reports/report-<A>-vs-<B>.json` and `.md`; `--out BASE` writes `BASE.json` and `BASE.md`, and `--examples N` (default 3) sets how many avoidable deaths per malady get a line in the examples section. The reports must have the same `--runs`, grid and turn cap. They may have different `--lookback`: success does not depend on it. Avoidable counts do, so run A with `--lookback 3` and expect B's avoidable column (usually lookback 1) to be an undercount; judge the policies by success and by A's own death analysis.
+The default output is `reports/report-<A>-vs-<B>.json` and `.md`; `--out BASE` writes `BASE.json` and `BASE.md`, and `--examples N` (default 3) sets how many avoidable deaths per malady get a line in the examples section. The reports must have the same `--runs`, `--seed-offset`, grid and turn cap. They may have different `--lookback`: success does not depend on it. Avoidable counts do, so run A with `--lookback 3` and expect B's avoidable column (usually lookback 1) to be an undercount; judge the policies by success and by A's own death analysis.
 
 The Markdown has:
 
@@ -179,7 +182,7 @@ The JSON holds the same tables plus every death of A (`analysis.deaths`) and eve
 
 ## Web viewer
 
-A local page plays one SurgE surgery in slow motion. It shows the patient screen and the tool the advisor picked; each press of Next applies that tool and advances one turn, until SurgE ends the surgery in success or failure. Nobody types states by hand: the middleware reads them from SurgE.
+A local page plays one SurgE surgery in slow motion. It shows the patient screen and the tool the advisor picked; each press of Next applies that tool and advances one turn, until SurgE ends the surgery in success or failure. In this simulator mode nobody types states by hand: the middleware reads them from SurgE. An optional [manual mode](#manual-mode) lets a player type the screen of their own game instead.
 
 ```mermaid
 sequenceDiagram
@@ -237,6 +240,29 @@ Surgeries live in server memory only; restarting the server clears them, and onl
 1. Choose the settings and start. The page shows turn 0 and the advisor's first tool.
 2. Press Next. The server applies the tool, SurgE runs its turn update, and a skill fail or heart stop may happen.
 3. The page shows the new screen and the next tool. Repeat until SurgE ends the surgery.
+
+### Manual mode
+
+The **Manual (your game)** tab (`?mode=manual`; the **Simulator** tab is the default and works exactly as above) is for playing the real game with the advisor beside it. You type what your own screen shows and the page says which tool to use next. It never connects to the game: the only input is what you type ([D21](decisions.md#d21-optional-manual-input-mode-in-the-web-viewer)).
+
+How to use it:
+
+1. Fill in the skill level and modifier, then the screen: pulse, status, temperature, site, visibility, incisions, bones (unknown until scanned), bleeding, fever, the diagnosis text and the special condition text. The text fields are dropdowns of SurgE's own sentences (the diagnosis one also takes your own text); leave them on "Not diagnosed yet" and "none shown" until the game shows them.
+2. "Usable tools" is ticked from the game's tray rules (the same ones `harness/observe.py` uses): only the Sponge when you can't see; Defibrillator only with a stopped heart; Ultrasound only before a diagnosis; Pins and Clamp only with an open incision; Lab Kit until one has worked, Antibiotics after it; Fix It only while the diagnosis field shows a malady's fix text. The ticks are recomputed when one of those fields changes and after each Advise; a box you change by hand stays as you set it until then. Check that the boxes match your tray.
+3. Press **Advise**. The tool is shown large with its rule ID and reason, and a row is added to the history.
+4. Use the tool in your game. Then change only what changed on your screen. "Last tool result" is pre-set to *worked* for the advised tool; set it to *skill fail* if the game showed `[Skill Fail`, or pick another tool in "Tool used" if you used a different one. Press **Advise** again.
+5. **New patient** clears the memory and history for the next surgery and keeps the form's values.
+
+Memory carries across turns inside one patient, as in the simulator. The diagnosis, the sleep count and the lab kit and antibiotics doses are kept from the earlier turns, so the diagnosis text can be left blank after it has been entered once. A tool counts as done only when its result is *worked* (the server fills in the same confirmation text the game shows, such as "The patient is now asleep."); a skill fail changes nothing, as in the game.
+
+| Endpoint | What it does |
+| --- | --- |
+| `GET /manual/options` | The values the form offers: the pulse, status, site, visibility, bleeding, fever, modifier and tool lists in PRD order, each malady's scan, fix and post-fix text, and each special condition's id, name and text |
+| `POST /manual` | Starts a new patient (empty memory); returns `{"id": ...}` |
+| `POST /manual/{id}/advise` | Body `{"state": <screen state, PRD section 8>, "used_tool": <tool id or null>, "result": "worked" \| "skill_fail" \| null}`. `used_tool` and `result` describe what you did with the previous advice (null on the first turn); if `state.last_tool_text` is blank the server builds it from them, and if `used_tool` is not the tool advised, memory is told so. Returns `{"decision": {tool, rule, reason}, "turn": n, "history": [...]}`; a bad state is a 400 with the message |
+| `POST /manual/{id}/reset` | A new patient in the same session (memory and history cleared) |
+
+The decision goes through the same `engine.decide()` and legality check as everywhere else: only a tool you left ticked is returned, never Scalpel while awake and never Anesthetic while unconscious. The `Config` is built from the skill and modifier of the first state (the minimal Antiseptic default) and rebuilt if you change either later. Sessions are kept like the simulator's (memory only, newest 100).
 
 ### Notes
 
