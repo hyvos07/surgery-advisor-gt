@@ -1,5 +1,6 @@
 """The death lookback: avoidable at an earlier turn, found by playing branches on."""
 
+import copy
 import random
 from typing import Any
 
@@ -11,6 +12,7 @@ from harness.bench import Grid, _check_comparable, run_cell, run_grid
 from harness.runner import (
     AVOIDABLE_DEATH,
     BRANCH_WINS_NEEDED,
+    SUCCESS,
     UNLUCKY_DEATH,
     AdvisorPolicy,
     Result,
@@ -35,10 +37,12 @@ def fields(result: Result) -> tuple[str, int | None, str | None]:
     return result.outcome, result.mistake_turns_back, result.alternative
 
 
-# Baseline, Heart Attack, no condition, skill 0: what lookback 1 (the one-turn
-# check) says, and what lookback 3 says. Found by scanning seeds 0 to 39.
+# Baseline, Heart Attack, no condition, skill 0: what lookback 1 (the shared-roll test
+# at the fatal turn only) says. Found by scanning seeds 0 to 39. Seed 3 was avoidable
+# (Transfusion) under the pre-D23 rule, where another tool only had to survive the
+# fatal turn; with the shared rolls and the original-tool control it is luck.
 BASELINE_LOOKBACK_1 = {
-    3: (AVOIDABLE_DEATH, 0, "transfusion"),  # avoidable at the fatal turn
+    3: (UNLUCKY_DEATH, None, None),  # was (AVOIDABLE_DEATH, 0, "transfusion")
     12: (UNLUCKY_DEATH, None, None),
     19: (UNLUCKY_DEATH, None, None),  # a turn earlier would have saved it
     26: (UNLUCKY_DEATH, None, None),
@@ -61,6 +65,21 @@ def test_lookback_is_one_by_default() -> None:
 # at Fatty Liver. Both deaths were unlucky at lookback 1.
 ADVISOR_HEART_50 = Settings("Heart Attack", "none", 50, None, 44)
 ADVISOR_LIVER_50 = Settings("Fatty Liver", "none", 50, None, 71)
+
+# Pinned by scanning seeds (the advisor, skill 50 or 25, no modifier). In the first two
+# the advisor's Antibiotics failed its skill roll on the fatal turn (E6), which adds
+# fever; almost every other tool "survives" that turn, but the patient dies the next
+# turn whatever is done, and the shared-roll test says so. Under the pre-D23 rule all
+# were avoidable (Sponge, Anesthetic, Stitches and others survived the turn).
+BRAINWORMS_1 = Settings("Brainworms", "none", 50, None, 1)
+FATTY_LIVER_4 = Settings("Fatty Liver", "none", 50, None, 4)
+# Avoidable at the fatal turn by the shared-roll test: Stitches wins 2 of 3 rollouts
+# and the policy's own tool does not. Seed 71 was avoidable before D23 as well; in
+# seed 10 (a skill-failed Transfusion) no tool survived the fatal turn on the real
+# draw, so it was unlucky before D23.
+BRAINWORMS_71 = Settings("Brainworms", "none", 50, None, 71)
+BRAINWORMS_10 = Settings("Brainworms", "none", 50, None, 10)
+FATTY_LIVER_25_18 = Settings("Fatty Liver", "none", 25, None, 18)
 
 
 def play_settings(settings: Settings, lookback: int = 3) -> Result:
@@ -161,8 +180,14 @@ def test_every_tool_at_a_turn_gets_the_same_draws(
     assert asked["transfusion"] == every
 
 
-def test_stopping_early_gives_the_same_verdict_as_running_every_rollout() -> None:
-    branch, turn, original = branch_at(ADVISOR_LIVER_50, 2)
+@pytest.mark.parametrize(
+    ("settings", "back"),
+    [(ADVISOR_LIVER_50, 2), (BRAINWORMS_71, 0), (BRAINWORMS_1, 0)],
+)
+def test_stopping_early_gives_the_same_verdict_as_running_every_rollout(
+    settings: Settings, back: int
+) -> None:
+    branch, turn, _ = branch_at(settings, back)
     for tool in branch.state["usable_tools"]:
         full, _ = _rollouts(branch, turn, tool, run_all_when_working=True)
         early, _ = _rollouts(branch, turn, tool, run_all_when_working=False)
@@ -170,11 +195,80 @@ def test_stopping_early_gives_the_same_verdict_as_running_every_rollout() -> Non
 
 
 def test_lookback_3_keeps_what_lookback_1_already_found() -> None:
-    assert fields(play("baseline", 3, 3)) == (AVOIDABLE_DEATH, 0, "transfusion")
-    # At the fatal turn every surviving tool is listed, in tray order.
-    result = play("baseline", 3, 3)
-    assert result.alternatives[0] == "transfusion"
-    assert len(set(result.alternatives)) == len(result.alternatives)
+    for settings in (BRAINWORMS_71, BRAINWORMS_10, FATTY_LIVER_25_18):
+        one, three = play_settings(settings, 1), play_settings(settings, 3)
+        assert one.outcome == AVOIDABLE_DEATH and one.mistake_turns_back == 0
+        assert one == three
+    # At the fatal turn the working tools are listed best first, without repeats.
+    result = play_settings(FATTY_LIVER_25_18, 1)
+    assert result.alternative == "sponge"
+    assert result.alternatives == ("sponge", "stitches", "ultrasound", "antiseptic")
+
+
+def survivors_of_the_fatal_turn(settings: Settings) -> list[str]:
+    """The pre-D23 test: tools that merely get through the fatal turn (one draw)."""
+    surgery = Surgery(settings, policy_by_name("advisor"), "advisor")
+    while not surgery.ended:
+        surgery.step()
+    branch = surgery._replay_to(len(surgery.applied) - 1)
+    survivors = []
+    for tool in branch.state["usable_tools"]:
+        if tool == surgery.applied[-1]:
+            continue
+        trial = copy.deepcopy(branch)
+        trial.step(override=tool)
+        if not trial.ended or trial.outcome == SUCCESS:
+            survivors.append(tool)
+    return survivors
+
+
+def last_turn_of(settings: Settings) -> dict[str, Any]:
+    records: list[dict[str, Any]] = []
+    run_surgery(
+        settings,
+        policy_by_name("advisor"),
+        "advisor",
+        on_record=records.append,
+    )
+    return records[-1]
+
+
+@pytest.mark.parametrize("settings", [BRAINWORMS_1, FATTY_LIVER_4])
+def test_a_skill_failed_antibiotics_on_the_fatal_turn_is_luck(
+    settings: Settings,
+) -> None:
+    last = last_turn_of(settings)
+    assert (last["applied_tool"], last["decision"]["rule"]) == ("antibiotics", "E6")
+    assert last["skill_fail"]
+    old = survivors_of_the_fatal_turn(settings)
+    assert {"sponge", "anesthetic", "stitches"} <= set(old)  # avoidable before D23
+    result = play_settings(settings, 1)
+    assert fields(result) == (UNLUCKY_DEATH, None, None)
+    assert result.alternatives == ()
+
+
+def test_the_fatal_turn_is_avoidable_if_another_tool_wins_and_the_original_not() -> (
+    None
+):
+    for settings in (BRAINWORMS_71, BRAINWORMS_10):
+        result = play_settings(settings, 1)
+        assert fields(result) == (AVOIDABLE_DEATH, 0, "stitches")
+        assert result.alternatives == ("stitches",)
+        branch, turn, original = branch_at(settings, 0)
+        assert turn == result.turns - 1
+        wins = {
+            tool: _rollouts(branch, turn, tool, run_all_when_working=True)[0]
+            for tool in branch.state["usable_tools"]
+        }
+        assert wins["stitches"] >= BRANCH_WINS_NEEDED
+        assert wins[original] < BRANCH_WINS_NEEDED
+        working = {
+            t for t, w in wins.items() if w >= BRANCH_WINS_NEEDED and t != original
+        }
+        assert working == set(result.alternatives)
+    # Seed 10 is a death that was unlucky before D23: no tool survived its fatal turn.
+    assert survivors_of_the_fatal_turn(BRAINWORMS_10) == []
+    assert "stitches" in survivors_of_the_fatal_turn(BRAINWORMS_71)
 
 
 def test_lookback_3_leaves_a_hopeless_death_unlucky() -> None:
@@ -226,6 +320,8 @@ def test_same_settings_and_lookback_give_the_same_fields() -> None:
         assert fields(play(name, seed, 3)) == fields(play(name, seed, 3))
     assert play_settings(ADVISOR_LIVER_50) == play_settings(ADVISOR_LIVER_50)
     assert play_settings(ADVISOR_HEART_50) == play_settings(ADVISOR_HEART_50)
+    for settings in (BRAINWORMS_71, BRAINWORMS_1):  # decided at the fatal turn
+        assert play_settings(settings, 1) == play_settings(settings, 1)
 
 
 def test_the_replay_reaches_the_same_screens_as_the_surgery() -> None:
@@ -239,13 +335,30 @@ def test_the_replay_reaches_the_same_screens_as_the_surgery() -> None:
         assert surgery._replay_to(turn).state == states[turn]
 
 
+class ScalpelFirst:
+    """The advisor, except that its first move is a Scalpel on the awake patient."""
+
+    def __init__(self) -> None:
+        self.advisor = AdvisorPolicy()
+        self.first = True
+
+    def __call__(self, state: dict[str, Any], patient: Any) -> dict[str, str]:
+        pick = self.advisor(state, patient)
+        if self.first:
+            self.first = False
+            return {"tool": "scalpel", "rule": "T0", "reason": "t"}
+        return pick
+
+    def note_override(self, tool: str) -> None:
+        self.advisor.note_override(tool)
+
+
 def test_a_death_on_the_first_turns_looks_back_only_as_far_as_there_are_turns() -> None:
     result = run_surgery(
-        Settings("Heart Attack", "none", 100, seed=0),
-        lambda s, p: {"tool": "scalpel", "rule": "T0", "reason": "t"},
-        lookback=10,
+        Settings("Heart Attack", "none", 100, seed=0), ScalpelFirst(), lookback=10
     )
     assert result.outcome == AVOIDABLE_DEATH and result.turns == 1
+    assert result.mistake_turns_back == 0
 
 
 def test_note_override_makes_memory_confirm_the_replaced_tool() -> None:
@@ -310,9 +423,7 @@ def test_play_rejects_lookback_zero(capsys: pytest.CaptureFixture[str]) -> None:
 def test_a_bench_cell_records_the_fields_on_each_death() -> None:
     cell = run_cell(("baseline", HEART_ATTACK, 40, 3))
     deaths = {d["seed"]: d for d in cell["deaths"]}
-    assert deaths[3]["mistake_turns_back"] == 0
-    assert deaths[3]["alternative"] == "transfusion"
-    assert deaths[3]["alternatives"][0] == "transfusion"
+    assert deaths[3]["mistake_turns_back"] is None  # luck since D23 (was Transfusion)
     assert deaths[29]["mistake_turns_back"] is None  # luck: the original wins too
     assert deaths[12]["mistake_turns_back"] is None
     assert deaths[12]["alternative"] is None and deaths[12]["alternatives"] == []
@@ -322,6 +433,10 @@ def test_a_bench_cell_records_the_fields_on_each_death() -> None:
     (death,) = [d for d in heart["deaths"] if d["seed"] == 44]
     assert death["mistake_turns_back"] == 1 and death["alternative"] == "sponge"
     assert death["alternatives"] == ["sponge", "stitches", "lab_kit", "antiseptic"]
+    worms = run_cell(("advisor", ("Brainworms", "none", 50, None), 80, 1))
+    (fatal,) = [d for d in worms["deaths"] if d["seed"] == 71]
+    assert fatal["mistake_turns_back"] == 0 and fatal["alternative"] == "stitches"
+    assert fatal["alternatives"] == ["stitches"]
 
 
 def test_the_report_records_the_lookback() -> None:

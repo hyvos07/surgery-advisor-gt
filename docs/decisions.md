@@ -26,7 +26,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D20 | 2026-10-06 | License the repository under AGPL-3.0 | Accepted, not yet applied |
 | D21 | 2026-10-06 | Optional manual-input mode in the web viewer | Accepted, applied in M4 |
 | D22 | 2026-10-06 | Transfuse only when the pulse could bleed out | Accepted, applied in M4 |
-| D23 | 2026-10-06 | One-turn avoidable deaths use the shared-roll test | Accepted, not yet applied |
+| D23 | 2026-10-06 | One-turn avoidable deaths use the shared-roll test | Accepted, applied in M4 |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -250,4 +250,12 @@ Choices someone might later question, with the reason and what would reopen them
 - **Context:** the D17 target for one-turn avoidable deaths counts a death as avoidable when another tool merely survives the fatal turn. A skill-failed Antibiotics dose adds fever, so on such a turn almost any other tool "survives" it, even though the patient dies the next turn anyway. The deeper lookback had the same kind of bias and was fixed with shared rolls and an original-tool control (M4).
 - **Decision (owner):** at the fatal turn, use the same test as the deeper check: another tool must win 2 of 3 rollouts with shared random draws while the advisor's own tool does not. The D17 limits stay: at most 0.1% of surgeries in the owner's setup and 1% over the full grid. Illegal moves still count as avoidable.
 - **Why:** the target should measure decisions, not skill-fail luck.
-- **Status:** accepted, not yet applied. Note that `--lookback 1` will no longer reproduce the M1-M3 one-turn numbers; earlier reports stay comparable only with each other.
+- **Status:** applied in M4. `--lookback 1` no longer reproduces the M1-M3 one-turn numbers; earlier reports stay comparable only with each other. Success does not depend on the classifier and did not move. Result (200 runs per cell, advisor, one-turn avoidable deaths before and after):
+
+  | | Owner's setup, seeds 0-199, before | after | Fresh seeds 1000-1199, before | after | Full grid, before | after |
+  | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  | Success | 98.1% | 98.1% | 97.7% | 97.7% | 72.9% | 72.9% |
+  | Avoidable deaths | 51 (0.16%) | 7 (0.022%) | 45 | 2 (0.006%) | 3,620 (2.2%) | 815 (0.50%) |
+  | Unlucky deaths | 551 | 595 | not saved | 734 | 40,201 | 43,006 |
+
+  Both D17 limits are met: at most 0.1% in the owner's setup and 1% over the full grid. Zero illegal moves. The Train-E baseline under the same definition: 100 avoidable (0.31%) in the owner's setup, 692 (0.43%) over the full grid, against 5,179 and 21,799 before. The full-grid run took 118 s (61 s before) because the fatal turn now rolls out every tool.

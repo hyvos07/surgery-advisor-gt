@@ -189,6 +189,7 @@ class Surgery:
         policy_name: str = "policy",
         max_turns: int = MAX_TURNS,
         lookback: int = 1,
+        classify: bool = True,
     ) -> None:
         if lookback < 1:
             raise ValueError(f"lookback must be at least 1, got {lookback}")
@@ -199,10 +200,10 @@ class Surgery:
         self.lookback = lookback
         # A death is classified (and replayed from here) only in the real surgery;
         # the branches of the lookback turn this off, and a death is just a death.
-        self._classify = True
+        self._classify = classify
         # A branch needs a fresh policy that has seen nothing yet, so keep an
-        # untouched copy (only when a lookback beyond the fatal turn is asked for).
-        self._pristine_policy = copy.deepcopy(policy) if lookback > 1 else None
+        # untouched copy (not in a branch itself, which never classifies).
+        self._pristine_policy = copy.deepcopy(policy) if classify else None
         self.mistake_turns_back: int | None = None
         self.alternative: str | None = None
         self.alternatives: tuple[str, ...] = ()
@@ -311,44 +312,18 @@ class Surgery:
         )
 
     def _classify_death(self) -> str:
-        """Avoidable if the policy broke the rules or another tool would have lived.
+        """Avoidable if the policy broke the rules or another tool would have won.
 
-        At the fatal turn: replay the surgery up to it, then try every other usable
-        tool from that same state and random draw; one that survives the turn makes
-        the death avoidable. With `lookback` above 1, the same is asked of each of
-        the turns before it, newest first, but there an alternative has to win the
-        whole surgery (see `_rollouts`), and the tool the policy really applied,
-        given the same draws, must not win it too (then the death was luck at that
-        depth). Nothing found means unlucky.
+        At the fatal turn and then each turn before it, up to `lookback` turns,
+        newest first: replay the surgery to that turn and play every other usable
+        tool on to the end (see `_rollouts`). An alternative has to win the whole
+        surgery, and the tool the policy really applied, given the same draws, must
+        not win it too (then the death was luck at that depth). Nothing found means
+        unlucky.
         """
         if self.illegal_moves:
             return AVOIDABLE_DEATH
-        patient = start_surgery(
-            self.settings.malady,
-            self.settings.condition,
-            self.settings.skill,
-            self.settings.modifier,
-        )
-        rng = random.Random(self.settings.seed)
-        *before, fatal = self.applied
-        for tool in before:
-            with surge_random(rng):
-                patient.UseTool(TOOL_TYPES[tool])
-        survivors: list[str] = []
-        for alternative in observe(patient)["usable_tools"]:
-            if alternative == fatal:
-                continue
-            trial, trial_rng = copy.deepcopy(patient), random.Random()
-            trial_rng.setstate(rng.getstate())
-            with surge_random(trial_rng):
-                trial.UseTool(TOOL_TYPES[alternative])
-            if not trial.IsSurgeryEnded or _is_success(trial):
-                survivors.append(alternative)
-        if survivors:
-            self.mistake_turns_back, self.alternative = 0, survivors[0]
-            self.alternatives = tuple(survivors)
-            return AVOIDABLE_DEATH
-        for back in range(1, min(self.lookback, len(self.applied))):
+        for back in range(min(self.lookback, len(self.applied))):
             turn = len(self.applied) - 1 - back
             branch = self._replay_to(turn)
             original = self.applied[turn]
@@ -387,8 +362,8 @@ class Surgery:
             copy.deepcopy(self._pristine_policy),
             self.policy_name,
             self.max_turns,
+            classify=False,
         )
-        replay._classify = False
         for tool in self.applied[:turn]:
             replay.step(override=tool)
         return replay

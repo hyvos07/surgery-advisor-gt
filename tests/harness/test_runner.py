@@ -12,6 +12,7 @@ from harness.runner import (
     SUCCESS,
     TIMEOUT,
     UNLUCKY_DEATH,
+    AdvisorPolicy,
     Settings,
     Surgery,
     run_surgery,
@@ -136,15 +137,43 @@ def test_illegal_decision_is_rejected_and_recorded() -> None:
     assert result.illegal_moves == 3
 
 
+class ScalpelFirst:
+    """The advisor, except that its first move is a Scalpel on the awake patient."""
+
+    def __init__(self) -> None:
+        self.advisor = AdvisorPolicy()
+        self.first = True
+
+    def __call__(self, state: State, patient: Any) -> dict[str, str]:
+        pick = self.advisor(state, patient)
+        if self.first:
+            self.first = False
+            return decision("scalpel")
+        return pick
+
+    def note_override(self, tool: str) -> None:
+        self.advisor.note_override(tool)
+
+
 def test_scalpel_on_an_awake_patient_is_an_avoidable_death() -> None:
+    # An alternative has to win the surgery with the policy playing on (D23), so the
+    # policy must be able to finish it: "always scalpel" never could.
     outcomes = [
         run_surgery(
-            Settings("Heart Attack", "none", 100, seed=s), always("scalpel")
+            Settings("Heart Attack", "none", 100, seed=s), ScalpelFirst()
         ).outcome
         for s in range(20)
     ]
-    assert AVOIDABLE_DEATH in outcomes
-    assert UNLUCKY_DEATH not in outcomes
+    assert outcomes.count(AVOIDABLE_DEATH) >= 15
+    assert SUCCESS not in outcomes
+
+
+def test_a_scalpel_loop_is_unlucky_when_no_other_tool_could_win_it() -> None:
+    # Every alternative is followed by the same Scalpel-only policy, which cannot win.
+    result = run_surgery(
+        Settings("Heart Attack", "none", 100, seed=0), always("scalpel")
+    )
+    assert result.outcome == UNLUCKY_DEATH
 
 
 def test_two_failed_defibrillations_are_an_unlucky_death() -> None:

@@ -175,7 +175,7 @@ Targets were reset from the M3 benchmark with the owner's agreement ([D17](docs/
 | Metric | Target | M3 result |
 | --- | --- | ---: |
 | Illegal moves (scalpel while awake, anesthetic while unconscious, a tool not in the tray) | 0 | 0 |
-| One-turn avoidable deaths (another usable tool on the fatal turn would have survived it) | ≤ 0.1% of surgeries in the owner's setup, ≤ 1% over the full grid | 0.19%, 2.4% |
+| One-turn avoidable deaths (at the fatal turn another usable tool wins at least 2 of 3 rollouts with shared random draws while the advisor's own tool does not, [D23](docs/decisions.md)) | ≤ 0.1% of surgeries in the owner's setup, ≤ 1% over the full grid | 0.19%, 2.4% (before D23) |
 | Success rate in the owner's setup | ≥ 98% | 97.2% |
 | Success rate at skill 100, no modifier, all maladies and conditions | ≥ 95% | 93.7% |
 | Success rate at skill 0 | ≥ 50% | 47.3% |
