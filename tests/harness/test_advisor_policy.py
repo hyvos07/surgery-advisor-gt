@@ -15,7 +15,7 @@ from harness.runner import (
     run_surgery,
 )
 
-NAMES = ["advisor", "advisor-min-antiseptic", "baseline", "train-e-plus"]
+NAMES = ["advisor", "advisor-draft-antiseptic", "baseline", "train-e-plus"]
 # Seeds 0 to 2 of a cell where stale memory (a diagnosis, a finished fix) would
 # change the play: Heart Attack with Tough Skin needs counted incisions and a fix.
 CELL = ("Heart Attack", "tough_skin", 100, None)
@@ -44,10 +44,14 @@ def test_every_call_returns_a_fresh_advisor_with_its_own_memory() -> None:
     assert a is not b and a.memory is not b.memory
 
 
-def test_min_antiseptic_policy_uses_the_minimal_mode() -> None:
-    minimal, draft = policy_by_name("advisor-min-antiseptic"), policy_by_name("advisor")
+def test_advisor_defaults_to_minimal_and_draft_antiseptic_policy_uses_draft() -> None:
+    minimal, draft = (
+        policy_by_name("advisor"),
+        policy_by_name("advisor-draft-antiseptic"),
+    )
     assert isinstance(minimal, AdvisorPolicy) and isinstance(draft, AdvisorPolicy)
     assert (minimal.antiseptic_mode, draft.antiseptic_mode) == ("minimal", "draft")
+    assert AdvisorPolicy().antiseptic_mode == "minimal"
 
 
 def test_the_config_is_built_from_the_first_state() -> None:

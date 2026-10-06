@@ -22,9 +22,11 @@ MakeState = Callable[..., ScreenState]
 
 # Skill 50 has an 18% fail rate: crisis temperature 107 F, one pulse turn ahead.
 # The surge profile needs a temperature under 101 F.
-CONFIG = Config.for_patient(50, None)
+# CONFIG and WIKI use the draft Antiseptic mode explicitly: the rule tests below
+# were written against it, and `minimal` became the default only later (D14).
+CONFIG = Config.for_patient(50, None, antiseptic_mode="draft")
 MINIMAL = Config.for_patient(50, None, antiseptic_mode="minimal")
-WIKI = Config.for_patient(50, None, profile="wiki")
+WIKI = Config.for_patient(50, None, profile="wiki", antiseptic_mode="draft")
 
 MAX_REASON = 100
 

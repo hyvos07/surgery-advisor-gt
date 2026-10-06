@@ -88,7 +88,7 @@ class AdvisorPolicy:
     The `Config` is built from the first state's skill and modifier.
     """
 
-    def __init__(self, antiseptic_mode: str = ANTISEPTIC_DRAFT) -> None:
+    def __init__(self, antiseptic_mode: str = ANTISEPTIC_MINIMAL) -> None:
         self.antiseptic_mode = antiseptic_mode
         self.memory = Memory.new(knowledge.load())
         self.config: Config | None = None
@@ -107,7 +107,7 @@ class AdvisorPolicy:
 # Each entry builds a new policy, so no memory is shared between surgeries.
 _POLICY_FACTORIES: dict[str, Callable[[], Policy]] = {
     "advisor": AdvisorPolicy,
-    "advisor-min-antiseptic": lambda: AdvisorPolicy(ANTISEPTIC_MINIMAL),
+    "advisor-draft-antiseptic": lambda: AdvisorPolicy(ANTISEPTIC_DRAFT),
     "baseline": lambda: baseline_policy,
     "train-e-plus": lambda: train_e_plus_policy,
 }

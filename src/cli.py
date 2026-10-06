@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-POLICY_CHOICES = ["advisor", "advisor-min-antiseptic", "baseline", "train-e-plus"]
+POLICY_CHOICES = ["advisor", "advisor-draft-antiseptic", "baseline", "train-e-plus"]
 
 
 def _next(args: argparse.Namespace) -> int:

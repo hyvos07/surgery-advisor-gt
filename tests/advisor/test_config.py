@@ -75,9 +75,16 @@ def test_for_patient_defaults() -> None:
     assert c.fail_rate == 18
     assert c.margins == margins_for(18)
     assert c.very_quickly_bleed_cap == 6
-    assert c.antiseptic_mode == "draft"
+    assert c.antiseptic_mode == "minimal"  # D14
     assert c.antiseptic_min_incisions == 5
-    assert c.minimal_antiseptic is False
+    assert c.minimal_antiseptic is True
+
+
+def test_minimal_is_the_default_antiseptic_mode_and_draft_stays_selectable() -> None:
+    assert Config.for_patient(50, None).antiseptic_mode == "minimal"
+    assert Config(profile=SURGE, fail_rate=5, margins=margins_for(5)).minimal_antiseptic
+    draft = Config.for_patient(50, None, antiseptic_mode="draft")
+    assert draft.antiseptic_mode == "draft" and draft.minimal_antiseptic is False
 
 
 def test_for_patient_picks_band_from_fail_rate_not_skill() -> None:

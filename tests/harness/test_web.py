@@ -30,7 +30,7 @@ def test_options_list_every_choice() -> None:
     assert len(options["maladies"]) == 27 and len(options["conditions"]) == 6
     assert len(options["tools"]) == 14 and options["policies"] == [
         "advisor",
-        "advisor-min-antiseptic",
+        "advisor-draft-antiseptic",
         "baseline",
         "train-e-plus",
     ]
@@ -92,7 +92,7 @@ def test_restart_replays_the_same_surgery() -> None:
     assert again["log"] == played["log"] and again["state"] == played["state"]
 
 
-@pytest.mark.parametrize("policy", ["advisor", "advisor-min-antiseptic"])
+@pytest.mark.parametrize("policy", ["advisor", "advisor-draft-antiseptic"])
 def test_restart_resets_the_advisors_memory(policy: str) -> None:
     """A restarted surgery replays the first run to the end, turn for turn.
 

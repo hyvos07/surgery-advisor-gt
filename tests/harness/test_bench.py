@@ -65,7 +65,7 @@ def test_summary_groups_by_skill_condition_and_malady() -> None:
 
 
 def test_unknown_policy_is_refused() -> None:
-    with pytest.raises(ValueError, match="advisor-min-antiseptic"):
+    with pytest.raises(ValueError, match="advisor-draft-antiseptic"):
         run_grid("magic", 1, SMALL, workers=1)
 
 
@@ -76,7 +76,7 @@ def test_the_advisor_makes_no_illegal_move_on_a_small_grid() -> None:
         (0, 100),
         (None, "exquisite_bone_saw"),
     )
-    for name in ("advisor", "advisor-min-antiseptic"):
+    for name in ("advisor", "advisor-draft-antiseptic"):
         report = run_grid(name, 3, grid, workers=1)
         assert len(report["cells"]) == 36
         assert report["summary"]["overall"]["runs"] == 108

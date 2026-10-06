@@ -94,7 +94,7 @@ uv run surg bench --runs 200 --out reports/baseline           # write reports/ba
 uv run surg bench --skills 100 --modifiers exquisite_bone_saw --runs 200   # the owner's setup
 ```
 
-`--policy` is `advisor` (the default), `advisor-min-antiseptic`, `baseline` or `train-e-plus`. `--skills` takes a comma list of levels (default `0,25,50,75,100`) and `--modifiers` a comma list of modifier ids or `none` (default `none`); each builds the grid's skill and modifier axes. The owner's setup is 27 maladies × 6 conditions × skill 100 × the Exquisite Bone Saw: 162 cells.
+`--policy` is `advisor` (the default, minimal Antiseptic), `advisor-draft-antiseptic`, `baseline` or `train-e-plus`. `--skills` takes a comma list of levels (default `0,25,50,75,100`) and `--modifiers` a comma list of modifier ids or `none` (default `none`); each builds the grid's skill and modifier axes. The owner's setup is 27 maladies × 6 conditions × skill 100 × the Exquisite Bone Saw: 162 cells.
 
 ### Grid
 

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from harness.baseline import parse_tips
 from harness.observe import observe
-from harness.runner import Surgery, policy_by_name, resolve_settings
+from harness.runner import POLICY_NAMES, Surgery, policy_by_name, resolve_settings
 from harness.surge import (
     CONDITION_NAMES,
     MALADY_NAMES,
@@ -24,7 +24,7 @@ from harness.surge import (
 
 STATIC = Path(__file__).parent / "static"
 MAX_SURGERIES = 100  # the oldest is dropped beyond this; surgeries live in memory only
-POLICIES = ["advisor", "advisor-min-antiseptic", "baseline", "train-e-plus"]
+POLICIES = list(POLICY_NAMES)
 
 # Fields whose change is worth showing in the turn log.
 _WATCHED = (

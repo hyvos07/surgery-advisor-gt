@@ -16,7 +16,8 @@ from advisor.state import ScreenState, Tool
 
 MakeState = Callable[..., ScreenState]
 
-CONFIG = Config.for_patient(50, None)
+# Draft Antiseptic mode, explicitly: these tests predate the D14 default change.
+CONFIG = Config.for_patient(50, None, antiseptic_mode="draft")
 HEART_ATTACK = "Patient had a heart attack."
 
 

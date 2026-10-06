@@ -66,7 +66,7 @@ def test_play_uses_the_advisor_by_default(
 
 
 def test_play_takes_every_policy(capsys: pytest.CaptureFixture[str]) -> None:
-    for policy in ("advisor", "advisor-min-antiseptic", "baseline", "train-e-plus"):
+    for policy in ("advisor", "advisor-draft-antiseptic", "baseline", "train-e-plus"):
         args = ["play", "--malady", "Broken Arm", "--skill", "100", "--seed", "1"]
         assert cli.main([*args, "--policy", policy]) == 0
         assert f"policy {policy}" in capsys.readouterr().out

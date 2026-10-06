@@ -91,10 +91,10 @@ A malady that needs no Fix It (for example Broken Leg) is cut only to reach shat
 
 | Mode | E7 Clean open site | P9 Clean before cutting | P13 Wait and fallback |
 | --- | --- | --- | --- |
-| `draft` (default) | As in the table above | As in the table above | Antiseptic |
-| `minimal` (owner's preference, under test) | Never fires | Only before the first cut, and only when the malady needs at least `antiseptic_min_incisions` incisions (default 5, Brain Tumor) | Sponge |
+| `minimal` (default) | Never fires | Only before the first cut, and only when the malady needs at least `antiseptic_min_incisions` incisions (default 5, Brain Tumor) | Sponge |
+| `draft` (the `advisor-draft-antiseptic` policy) | As in the table above | As in the table above | Antiseptic |
 
-The benchmark compares the two; the default changes only on the owner's decision. **The owner chose `minimal` as the default (D14); the code still defaults to `draft` until that task in PLAN.md is done.**
+The benchmark compares the two. The owner chose `minimal` as the default (D14); `draft` stays selectable through the `advisor-draft-antiseptic` policy.
 
 ## Legality check
 

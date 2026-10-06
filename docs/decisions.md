@@ -124,7 +124,17 @@ Choices someone might later question, with the reason and what would reopen them
 
 - **Context:** D13's benchmark ran both Antiseptic modes. `minimal` scored slightly better everywhere: 96.6% against 96.2% in the owner's setup, 68.7% against 67.7% over the full grid, and about 0.45 fewer tools per success.
 - **Decision:** the owner chose `minimal` as the default.
-- **Status:** accepted, not yet applied. The code default is still `draft`. Switching it is an open task in [PLAN.md](../PLAN.md) (M3): change `Config.antiseptic_mode`'s default, make the `advisor` policy use it, keep `draft` selectable, re-run the benchmarks and save new comparison reports.
+- **Result (benchmark, 200 runs per cell, with D15 applied, `draft` before and `minimal` after):**
+
+  | | Owner's setup, draft | minimal | Full grid, draft | minimal |
+  | --- | ---: | ---: | ---: | ---: |
+  | Success | 96.7% | 97.1% | 70.9% | 71.4% |
+  | Avoidable deaths | 76 | 59 | 3,414 | 3,352 |
+  | Timeouts | 40 | 33 | 932 | 911 |
+  | Tools per success | 16.3 | 16.0 | 18.0 | 17.7 |
+
+  Zero illegal moves. The 5-run quick benchmark showed the opposite (72.8% against 74.0%); at 5 runs per cell that gap is noise, and the 200-run results decide.
+- **Status:** applied in M3. The `advisor` policy uses `minimal`; `draft` stays selectable as the `advisor-draft-antiseptic` policy, which replaces `advisor-min-antiseptic` (older reports and the D13 text use that name).
 - **Revisit if:** M3's death analysis ties deaths to an unclean site or infection.
 
 ## D15. Close the incisions before Fix It, and do Fix It last

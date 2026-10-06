@@ -162,7 +162,7 @@ class Config:
     fail_rate: int
     margins: Margins
     very_quickly_bleed_cap: int = VERY_QUICKLY_BLEED_CAP_DEFAULT
-    antiseptic_mode: str = ANTISEPTIC_DRAFT  # "draft" | "minimal"
+    antiseptic_mode: str = ANTISEPTIC_MINIMAL  # "minimal" (default, D14) | "draft"
     antiseptic_min_incisions: int = ANTISEPTIC_MIN_INCISIONS_DEFAULT
 
     def __post_init__(self) -> None:
@@ -178,7 +178,7 @@ class Config:
         skill: int,
         modifier: str | None,
         profile: str = "surge",
-        antiseptic_mode: str = ANTISEPTIC_DRAFT,
+        antiseptic_mode: str = ANTISEPTIC_MINIMAL,
     ) -> Config:
         if profile not in PROFILES:
             raise ValueError(

@@ -2,7 +2,7 @@
 
 The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the full benchmark grid with zero avoidable deaths. Requirements are in [PRD.md](PRD.md); this file is the order of work.
 
-**Current status:** M2 done. The rule engine runs in `surg play`, `surg web`, `surg bench` and `surg next`. After two owner-approved fixes (D13) the advisor wins 96.2% in the owner's setup (skill 100, Exquisite Bone Saw) and 67.7% over the full grid, against 22.0% for the Train-E baseline, with zero illegal moves. Next up is M3: the first full benchmark report and the death analysis.
+**Current status:** M3 in progress. D15 (close the incisions, then Fix It last) and D14 (minimal Antiseptic by default) are applied. The advisor wins 97.1% in the owner's setup (skill 100, Exquisite Bone Saw) and 71.4% over the full grid, against 28.7% and 22.0% for the Train-E baseline, with zero illegal moves. Next: the side-by-side report and the death analysis.
 
 ## Milestones
 
@@ -77,7 +77,7 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 ## M3: First benchmark
 
 - [x] Apply D15: close the incisions before Fix It and do Fix It last (memory `fix_unlocked`; P3, P5 and P6 guards as written in D15). Write D15's tests first, then benchmark against the current rules and record the numbers in D15 (done: 96.7% owner's setup, 70.9% full grid)
-- [ ] Apply D14: make `minimal` the default Antiseptic mode (`Config` default and the `advisor` policy; keep `draft` selectable), update the docs that say `draft` is the default, then re-run the owner's-setup and full-grid benchmarks and re-save the comparison reports (`reports/baseline-5.json` stays as is)
+- [x] Apply D14: make `minimal` the default Antiseptic mode (`Config` default and the `advisor` policy; keep `draft` selectable), update the docs that say `draft` is the default, then re-run the owner's-setup and full-grid benchmarks and re-save the comparison reports (`reports/baseline-5.json` stays as is) (done: 97.1% owner's setup, 71.4% full grid; `draft` is the `advisor-draft-antiseptic` policy)
 - [ ] Full grid for advisor and baseline with the same seeds
 - [ ] Report: success rate per malady, condition and skill level, side by side
 - [ ] Tools used: compare the tools per success only on surgeries (same cell and seed) that both advisor and baseline win, and record the fewest tools ever needed per cell as the reference to approach

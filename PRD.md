@@ -154,7 +154,7 @@ All enum values are lowercase snake case. A field is `null` when the screen does
 | `surg bench --runs 200` | Runs the full benchmark grid and writes a report |
 | `surg web` | Starts the web viewer on `http://127.0.0.1:8000` (`--port` changes the port; the host is fixed) |
 
-`surg play` also takes `--malady`, `--modifier`, `--policy` and `--log FILE.jsonl`; blank settings are chosen at random from the seed. `surg bench` also takes `--policy`, `--skills` (comma list, default `0,25,50,75,100`), `--modifiers` (comma list of ids or `none`, default `none`), `--out BASE`, `--compare REPORT.json` and `--workers`. `--policy` is `advisor` (the default), `advisor-min-antiseptic`, `baseline` or `train-e-plus`.
+`surg play` also takes `--malady`, `--modifier`, `--policy` and `--log FILE.jsonl`; blank settings are chosen at random from the seed. `surg bench` also takes `--policy`, `--skills` (comma list, default `0,25,50,75,100`), `--modifiers` (comma list of ids or `none`, default `none`), `--out BASE`, `--compare REPORT.json` and `--workers`. `--policy` is `advisor` (the default, minimal Antiseptic), `advisor-draft-antiseptic`, `baseline` or `train-e-plus`.
 
 ## 9. Non-functional requirements
 
