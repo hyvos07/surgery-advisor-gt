@@ -21,7 +21,7 @@ from harness.runner import (
     policy_by_name,
     run_surgery,
 )
-from harness.surge import CONDITION_NAMES, MALADY_NAMES, MODIFIER_NAMES
+from harness.surge import CONDITION_NAMES, MALADY_NAMES, MODIFIER_NAMES, TOOL_IDS
 
 OUTCOMES = (SUCCESS, AVOIDABLE_DEATH, UNLUCKY_DEATH, TIMEOUT)
 SKILLS = (0, 25, 50, 75, 100)
@@ -117,6 +117,7 @@ def run_cell(job: tuple[str, Cell, int]) -> Report:
     tools_success: Counter[str] = Counter()
     tools_all: Counter[str] = Counter()
     deaths = []
+    seed_tools: list[list[int] | None] = []  # one entry per seed, for pairing
     for seed in range(runs):
         last_rules: deque[str] = deque(maxlen=3)
         result = run_surgery(
@@ -138,7 +139,10 @@ def run_cell(job: tuple[str, Cell, int]) -> Report:
             fewest = (
                 result.tools_used if fewest is None else min(fewest, result.tools_used)
             )
-        elif result.outcome != TIMEOUT:
+            seed_tools.append([result.tool_counts.get(t, 0) for t in TOOL_IDS])
+            continue
+        seed_tools.append(None)
+        if result.outcome != TIMEOUT:
             deaths.append(
                 {
                     "seed": seed,
@@ -158,6 +162,7 @@ def run_cell(job: tuple[str, Cell, int]) -> Report:
         "min_tools_on_success": fewest,
         "tool_counts_success": dict(tools_success),
         "tool_counts_all": dict(tools_all),
+        "seed_tools": seed_tools,
         "turns": turns,
         "illegal_moves": illegal_moves,
         "skill_fails": skill_fails,
@@ -240,6 +245,7 @@ def run_grid(
             "seeds": f"0 to {runs - 1}",
             "max_turns": MAX_TURNS,
             "grid": grid.as_dict(),
+            "tool_order": list(TOOL_IDS),
             "created": datetime.now(UTC).isoformat(timespec="seconds"),
             "workers": workers,
             "elapsed_seconds": round(time.perf_counter() - started, 1),
@@ -252,18 +258,23 @@ def run_grid(
 # --- comparing and writing reports ----------------------------------------
 
 
-def compare_reports(current: Report, saved: Report) -> Report:
-    """Change in every summary number against a saved report (hard rule 6).
-
-    Refuses reports made with other run counts, grids or turn caps, because their
-    seeds don't line up.
-    """
+def _check_comparable(current: Report, saved: Report) -> None:
+    """Refuse reports made with other run counts, grids or turn caps (rule 6)."""
     for key in ("runs", "max_turns", "grid"):
         if current["meta"][key] != saved["meta"][key]:
             raise ValueError(
                 f"cannot compare: {key} differs "
                 f"({saved['meta'][key]!r} saved vs {current['meta'][key]!r} now)"
             )
+
+
+def compare_reports(current: Report, saved: Report) -> Report:
+    """Change in every summary number against a saved report (hard rule 6).
+
+    Refuses reports made with other run counts, grids or turn caps, because their
+    seeds don't line up.
+    """
+    _check_comparable(current, saved)
 
     def delta(now: Report, then: Report) -> Report:
         out: Report = {"success_rate": now["success_rate"] - then["success_rate"]}
@@ -386,3 +397,268 @@ def write_report(
 
 def default_base(directory: Path = Path("reports")) -> Path:
     return directory / datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+
+
+# --- pairing tools between two policies -----------------------------------
+#
+# Tools per success are only fair to compare on the same surgery. A "pair" is
+# one seed of one cell that both reports won; `seed_tools` holds the per-tool
+# counts of each win, so the two can be lined up.
+
+
+def _min_or(a: int | None, b: int | None) -> int | None:
+    return b if a is None else a if b is None else min(a, b)
+
+
+def _new_pairs() -> Report:
+    return {
+        "pairs": 0,
+        "runs": 0,
+        "a_wins": 0,
+        "b_wins": 0,
+        "a_tools": 0,
+        "b_tools": 0,
+        "a_by_tool": Counter(),
+        "b_by_tool": Counter(),
+        "fewest": None,
+        "a_fewest": None,
+        "b_fewest": None,
+    }
+
+
+def _add_pairs(total: Report, part: Report) -> None:
+    """Fold one tally into another (both are `_new_pairs` shapes)."""
+    for key in ("pairs", "runs", "a_wins", "b_wins", "a_tools", "b_tools"):
+        total[key] += part[key]
+    total["a_by_tool"].update(part["a_by_tool"])
+    total["b_by_tool"].update(part["b_by_tool"])
+    for key in ("fewest", "a_fewest", "b_fewest"):
+        total[key] = _min_or(total[key], part[key])
+
+
+def _pair_cell(
+    runs: int,
+    a_seeds: list[list[int] | None],
+    b_seeds: list[list[int] | None],
+    tools: list[str],
+) -> Report:
+    """One cell's tally. Entry i of each list is seed i: tool counts, or None."""
+    out = _new_pairs()
+    out["runs"] = runs
+    for a_counts, b_counts in zip(a_seeds, b_seeds, strict=True):
+        if a_counts is not None:
+            out["a_wins"] += 1
+            out["a_fewest"] = _min_or(out["a_fewest"], sum(a_counts))
+        if b_counts is not None:
+            out["b_wins"] += 1
+            out["b_fewest"] = _min_or(out["b_fewest"], sum(b_counts))
+        if a_counts is None or b_counts is None:
+            continue
+        out["pairs"] += 1
+        out["a_tools"] += sum(a_counts)
+        out["b_tools"] += sum(b_counts)
+        out["a_by_tool"].update(dict(zip(tools, a_counts, strict=True)))
+        out["b_by_tool"].update(dict(zip(tools, b_counts, strict=True)))
+    out["fewest"] = _min_or(out["a_fewest"], out["b_fewest"])
+    return out
+
+
+def _finish_pairs(acc: Report, tools: list[str]) -> Report:
+    """Plain dicts and the derived per-success numbers."""
+    used = [t for t in tools if acc["a_by_tool"][t] or acc["b_by_tool"][t]]
+    pairs = acc["pairs"]
+    a_per = acc["a_tools"] / pairs if pairs else None
+    b_per = acc["b_tools"] / pairs if pairs else None
+    return {
+        **{k: v for k, v in acc.items() if k not in ("a_by_tool", "b_by_tool")},
+        "a_by_tool": {t: acc["a_by_tool"][t] for t in used},
+        "b_by_tool": {t: acc["b_by_tool"][t] for t in used},
+        "a_per_success": a_per,
+        "b_per_success": b_per,
+        "difference": None if a_per is None or b_per is None else a_per - b_per,
+    }
+
+
+def _cell_key(cell: Report) -> Cell:
+    return (cell["malady"], cell["condition"], cell["skill"], cell["modifier"])
+
+
+def pair_tools(a: Report, b: Report) -> Report:
+    """Tools per success on the surgeries both reports won (same cell and seed).
+
+    The reports must come from the same `--runs`, grid and turn cap, and from a
+    version of `surg bench` that records `seed_tools`. Fewer tools is better, so
+    a positive difference means `a` used more.
+    """
+    _check_comparable(a, b)
+    for report in (a, b):
+        if "tool_order" not in report["meta"] or any(
+            "seed_tools" not in c for c in report["cells"]
+        ):
+            raise ValueError(
+                f"cannot pair tools: the {report['meta']['policy']} report has no "
+                "per-seed tool counts; re-run `surg bench` with this version"
+            )
+    tools: list[str] = list(a["meta"]["tool_order"])
+    if tools != list(b["meta"]["tool_order"]):
+        raise ValueError(
+            "cannot pair tools: the reports list tools in a different order; "
+            "re-run `surg bench` with this version"
+        )
+    b_cells = {_cell_key(c): c for c in b["cells"]}
+
+    overall = _new_pairs()
+    groups: dict[str, dict[Any, Report]] = {g: {} for g in GROUPS}
+    cells: list[Report] = []
+    for cell in a["cells"]:
+        other = b_cells.get(_cell_key(cell))
+        if other is None:
+            raise ValueError(
+                f"cannot pair tools: {_cell_key(cell)!r} is missing from the "
+                f"{b['meta']['policy']} report"
+            )
+        tally = _pair_cell(cell["runs"], cell["seed_tools"], other["seed_tools"], tools)
+        _add_pairs(overall, tally)
+        for group in GROUPS:
+            _add_pairs(groups[group].setdefault(cell[group], _new_pairs()), tally)
+        done = _finish_pairs(tally, tools)
+        cells.append(
+            {
+                "malady": cell["malady"],
+                "condition": cell["condition"],
+                "skill": cell["skill"],
+                "modifier": cell["modifier"],
+                "pairs": done["pairs"],
+                "a_per_success": done["a_per_success"],
+                "b_per_success": done["b_per_success"],
+                "fewest": done["fewest"],
+                "a_fewest": done["a_fewest"],
+                "b_fewest": done["b_fewest"],
+            }
+        )
+
+    summary: Report = {"overall": _finish_pairs(overall, tools)}
+    for group in GROUPS:
+        keys = sorted(groups[group], key=lambda k: (str(type(k)), k))
+        summary[group] = {
+            str(key): _finish_pairs(groups[group][key], tools) for key in keys
+        }
+    return {
+        "meta": {
+            "a": a["meta"]["policy"],
+            "b": b["meta"]["policy"],
+            "runs": a["meta"]["runs"],
+            "grid": a["meta"]["grid"],
+            "max_turns": a["meta"]["max_turns"],
+            "tool_order": tools,
+            "created": datetime.now(UTC).isoformat(timespec="seconds"),
+        },
+        "summary": summary,
+        "cells": cells,
+    }
+
+
+def _fmt(value: float | None, spec: str = "") -> str:
+    """A number in the given format, or blank when there is none."""
+    return "" if value is None else format(value, spec)
+
+
+def _tool_differences(row: Report, tools: list[str]) -> dict[str, float]:
+    """Per-success difference in each tool (a minus b) over a group's pairs."""
+    pairs = row["pairs"]
+    if not pairs:
+        return {}
+    return {
+        t: (row["a_by_tool"].get(t, 0) - row["b_by_tool"].get(t, 0)) / pairs
+        for t in tools
+    }
+
+
+def render_tools_markdown(paired: Report) -> str:
+    meta, summary = paired["meta"], paired["summary"]
+    a, b, tools = meta["a"], meta["b"], meta["tool_order"]
+    lines = [
+        f"# Tools: {a} vs {b}",
+        "",
+        f"- Runs per cell: {meta['runs']}",
+        f"- Cells: {len(paired['cells'])}",
+        "- Only surgeries that both policies won are compared (same cell and seed). "
+        "Fewer tools is better.",
+        f"- Difference is {a} minus {b} per success: +1.2 means {a} uses more tools.",
+    ]
+    header = (
+        f"| | Pairs | Both won | {a} wins | {b} wins | {a} tools/success "
+        f"| {b} tools/success | Difference | Fewest (either) | {a} fewest "
+        f"| {b} fewest |"
+    )
+    rule = "| --- |" + " ---: |" * 10
+    for title, group in (
+        ("Overall", None),
+        ("By skill level", "skill"),
+        ("By special condition", "condition"),
+        ("By malady", "malady"),
+    ):
+        rows = {"all": summary["overall"]} if group is None else summary[group]
+        lines += ["", f"## {title}", "", header, rule]
+        for key, r in rows.items():
+            both = _pct(r["pairs"] / r["runs"]) if r["runs"] else ""
+            lines.append(
+                f"| {key} | {r['pairs']} | {both} | {r['a_wins']} | {r['b_wins']} "
+                f"| {_fmt(r['a_per_success'], '.1f')} "
+                f"| {_fmt(r['b_per_success'], '.1f')} "
+                f"| {_signed(r['difference'])} "
+                f"| {_fmt(r['fewest'])} | {_fmt(r['a_fewest'])} "
+                f"| {_fmt(r['b_fewest'])} |"
+            )
+
+    overall = summary["overall"]
+    diffs = _tool_differences(overall, tools)
+    lines += [
+        "",
+        "## Where the difference comes from",
+        "",
+        "Tools per success over the pairs, largest difference first.",
+        "",
+        f"| Tool | {a} per success | {b} per success | Difference |",
+        "| --- | ---: | ---: | ---: |",
+    ]
+    pairs = overall["pairs"]
+    for tool in sorted(diffs, key=lambda t: -abs(diffs[t])):
+        lines.append(
+            f"| {tool} | {overall['a_by_tool'].get(tool, 0) / pairs:.2f} "
+            f"| {overall['b_by_tool'].get(tool, 0) / pairs:.2f} "
+            f"| {diffs[tool]:+.2f} |"
+        )
+
+    lines += [
+        "",
+        "## Biggest differences by malady",
+        "",
+        "| Malady | Difference | Top 3 tools by difference |",
+        "| --- | ---: | --- |",
+    ]
+    maladies = summary["malady"]
+    # Largest first; maladies with no pairs have no difference and go last.
+    ranked = sorted(
+        maladies,
+        key=lambda m: (
+            maladies[m]["difference"] is None,
+            -(maladies[m]["difference"] or 0.0),
+        ),
+    )
+    for malady in ranked:
+        row = maladies[malady]
+        by_tool = _tool_differences(row, tools)
+        top = sorted(by_tool, key=lambda t: -abs(by_tool[t]))[:3]
+        shown = ", ".join(f"{t} {by_tool[t]:+.2f}" for t in top if by_tool[t])
+        lines.append(f"| {malady} | {_signed(row['difference'])} | {shown} |")
+    return "\n".join(lines) + "\n"
+
+
+def write_tools_report(paired: Report, base: Path) -> tuple[Path, Path]:
+    """Write `<base>.json` and `<base>.md` for a paired comparison."""
+    base.parent.mkdir(parents=True, exist_ok=True)
+    json_path, md_path = base.with_suffix(".json"), base.with_suffix(".md")
+    json_path.write_text(json.dumps(paired), encoding="utf-8")
+    md_path.write_text(render_tools_markdown(paired), encoding="utf-8")
+    return json_path, md_path

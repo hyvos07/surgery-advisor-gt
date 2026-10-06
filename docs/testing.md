@@ -122,10 +122,28 @@ The JSON holds the grid, per-cell outcome counts and, for every death, its seed,
 
 - Success rate and outcome counts per malady, per condition and per skill level, advisor and baseline side by side
 - Tools used, since fewer is better once a surgery succeeds: the average per success and the fewest any success needed, in every row; a **Tools used** table of how many of each tool a success takes and how many every surgery spent in total (the gap is waste, such as Sponge loops); with `--compare`, the change in the average. The per-cell JSON keeps the counts per tool (`tool_counts_success`, `tool_counts_all`) and the fewest (`min_tools_on_success`). Each turn log line (`surg play --log`, the web turn log) records the tool applied, and the web end card lists the tools a surgery used.
-- Caution: the averages of two policies are not like for like when one succeeds on harder surgeries, because those need more tools. Judge efficiency on surgeries both policies win.
+- Caution: the averages of two policies are not like for like when one succeeds on harder surgeries, because those need more tools. Judge efficiency on surgeries both policies win (see [Paired tool comparison](#paired-tool-comparison)).
 - For every death, the rules that fired in the last 3 turns, then rules ranked by how often they appear before deaths
 - A viewer link for each death: `http://127.0.0.1:8000/?malady=…&condition=…&skill=…&seed=…`
 - With `--compare`, the change in each number against the saved report
+
+Each cell also holds `seed_tools`: one entry per seed in seed order, the per-tool counts of that surgery as a list in `meta.tool_order` order when it succeeded, `null` otherwise. The paired comparison below needs it, so reports saved before it existed still work with `--compare` but not with `surg tools`; re-run `surg bench` to get it.
+
+### Paired tool comparison
+
+Averages over each policy's own successes are unfair when one policy wins harder surgeries. `surg tools` lines the two policies up instead: a **pair** is one seed of one cell that both reports won, and only pairs are compared.
+
+```bash
+uv run surg bench --runs 200 --out reports/advisor
+uv run surg bench --policy baseline --runs 200 --out reports/baseline
+uv run surg tools reports/advisor.json reports/baseline.json   # writes reports/tools-advisor-vs-baseline.json and .md
+```
+
+Both reports must come from the same `--runs`, grid and turn cap, or `surg tools` refuses with the same message as `--compare`. `--out BASE` writes `BASE.json` and `BASE.md` elsewhere. The first report is *A* and the second *B*. Fewer tools is better, so a positive Difference (A minus B per success) means A uses more.
+
+The Markdown has, overall and by skill level, special condition and malady: pairs, the share of surgeries both won, each policy's wins, tools per success on the pairs, the difference, and the fewest tools any success needed. **Where the difference comes from** lists each tool's per-success count for A and B over all pairs, largest gap first, and **Biggest differences by malady** gives each malady's difference with the three tools that explain it most.
+
+"Fewest" is the lowest total tool count over every success of either policy in the group, not only the pairs. It is the reference to approach when tuning. The per-cell version is in the JSON `cells` list (`fewest`, `a_fewest`, `b_fewest` next to `pairs` and each policy's tools per success).
 
 ## Web viewer
 

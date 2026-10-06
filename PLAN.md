@@ -78,9 +78,9 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 
 - [x] Apply D15: close the incisions before Fix It and do Fix It last (memory `fix_unlocked`; P3, P5 and P6 guards as written in D15). Write D15's tests first, then benchmark against the current rules and record the numbers in D15 (done: 96.7% owner's setup, 70.9% full grid)
 - [x] Apply D14: make `minimal` the default Antiseptic mode (`Config` default and the `advisor` policy; keep `draft` selectable), update the docs that say `draft` is the default, then re-run the owner's-setup and full-grid benchmarks and re-save the comparison reports (`reports/baseline-5.json` stays as is) (done: 97.1% owner's setup, 71.4% full grid; `draft` is the `advisor-draft-antiseptic` policy)
-- [ ] Full grid for advisor and baseline with the same seeds
+- [x] Full grid for advisor and baseline with the same seeds (`reports/advisor.json`, `reports/baseline.json`; owner's setup in `reports/main-advisor.json`, `reports/main-baseline.json`)
 - [ ] Report: success rate per malady, condition and skill level, side by side
-- [ ] Tools used: compare the tools per success only on surgeries (same cell and seed) that both advisor and baseline win, and record the fewest tools ever needed per cell as the reference to approach
+- [x] Tools used: compare the tools per success only on surgeries (same cell and seed) that both advisor and baseline win, and record the fewest tools ever needed per cell as the reference to approach (done: `surg tools`; on paired wins the advisor uses 0.6 fewer tools in both the owner's setup and the full grid, saving about 2 Antiseptic and 0.5 Sponge but spending about 1 Lab Kit and 1 Antibiotics that the baseline skips, all from P2)
 - [ ] For every death, the rules that fired in the last 3 turns; rank rules by how often they appear
 - [ ] Deeper death classification: look back several turns, not just the fatal one, to find mistakes made earlier (M1 only checks the fatal turn)
 - [ ] Separate modifier run: 27 maladies × 4 modifiers × skill 0 and 100 × 50 runs
@@ -91,6 +91,7 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 
 - [ ] Fix the top failing rules from M3, re-running the same seeds after each change
 - [ ] Tune safety margins per skill band
+- [ ] Candidate from M3's tools comparison: P2 breaks every positive fever with Lab Kit and Antibiotics, even in short surgeries the baseline finishes below 101 F without them. Propose a guard (break the fever only if it would reach the finish threshold before the surgery can end) and benchmark it
 - [ ] Confirm zero avoidable deaths across the grid
 - [ ] Record final numbers in the README
 

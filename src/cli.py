@@ -1,4 +1,4 @@
-"""The `surg` command: next, play, bench and web."""
+"""The `surg` command: next, play, bench, tools and web."""
 
 import argparse
 import json
@@ -70,6 +70,42 @@ def _bench(args: argparse.Namespace) -> int:
     base = Path(args.out) if args.out else bench.default_base()
     json_path, md_path = bench.write_report(report, base, comparison)
     print(bench.render_markdown(report, comparison))
+    print(f"Wrote {json_path} and {md_path}")
+    return 0
+
+
+def _tools(args: argparse.Namespace) -> int:
+    from harness import bench
+
+    reports = []
+    for path in (args.a, args.b):
+        try:
+            reports.append(json.loads(Path(path).read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError) as error:
+            print(f"surg tools: cannot read {path}: {error}", file=sys.stderr)
+            return 1
+        except json.JSONDecodeError as error:
+            print(f"surg tools: {path} is not valid JSON: {error}", file=sys.stderr)
+            return 1
+    try:
+        paired = bench.pair_tools(reports[0], reports[1])
+    except (ValueError, KeyError, TypeError) as error:
+        message = (
+            error
+            if isinstance(error, ValueError)
+            else f"{args.a} or {args.b} is not a benchmark report ({error!r})"
+        )
+        print(f"surg tools: {message}", file=sys.stderr)
+        return 1
+
+    meta = paired["meta"]
+    base = (
+        Path(args.out)
+        if args.out
+        else Path("reports") / f"tools-{meta['a']}-vs-{meta['b']}"
+    )
+    json_path, md_path = bench.write_tools_report(paired, base)
+    print(bench.render_tools_markdown(paired))
     print(f"Wrote {json_path} and {md_path}")
     return 0
 
@@ -176,6 +212,13 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--out", metavar="BASE", help="write BASE.json and BASE.md")
     bench.add_argument("--workers", type=int, help="processes (default: CPU count)")
 
+    tools = sub.add_parser(
+        "tools", help="Compare tools per success on surgeries both reports won"
+    )
+    tools.add_argument("a", metavar="A.json", help="benchmark report")
+    tools.add_argument("b", metavar="B.json", help="benchmark report, same runs/grid")
+    tools.add_argument("--out", metavar="BASE", help="write BASE.json and BASE.md")
+
     play = sub.add_parser("play", help="Run one SurgE surgery in the terminal")
     play.add_argument("--malady", help="SurgE's spelling, e.g. 'Heart Attack'")
     play.add_argument("--condition", help="none, tough_skin, filthy, ...")
@@ -193,7 +236,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     ns = build_parser().parse_args(argv)
-    handlers = {"next": _next, "play": _play, "bench": _bench, "web": _web}
+    handlers = {
+        "next": _next,
+        "play": _play,
+        "bench": _bench,
+        "tools": _tools,
+        "web": _web,
+    }
     return handlers[ns.command](ns)
 
 
