@@ -87,6 +87,7 @@ One user: the project owner, testing the advisor against SurgE for fun and learn
 | FR18 | Offer Auto-play with a speed control (0.5–3 seconds per turn) and Pause. |
 | FR19 | Show a turn log (tool, skill fail, rule, what changed) and an end card with SurgE's result message. |
 | FR20 | Let the benchmark report link any run to the viewer by its settings and seed. |
+| FR21 | Offer an optional manual mode beside the simulator mode, which stays as it is: the player enters what their own game screen shows (the section 8 fields), presses Advise and gets the tool, rule and reason; memory carries across turns until a new patient is started. It never connects to the game ([D21](docs/decisions.md)). |
 
 Viewer design and endpoints: [docs/testing.md](docs/testing.md#web-viewer).
 
@@ -208,7 +209,7 @@ Plan and task lists: [PLAN.md](PLAN.md).
 
 - Q1. Should the default threshold profile be `surge` or `wiki`? Until decided, the default is `surge`, because all testing runs on SurgE.
 - Q2. Should modifiers be in the benchmark grid, or only no-modifier runs for the MVP? Until decided, the grid has no modifiers and a separate smaller modifier run. The owner plays at skill 100 with the Exquisite Bone Saw (2% skill fails), so that setup is the headline benchmark alongside the full grid (D12).
-- Q3. Which license should this repository use? Until decided, there is no license file.
+- ~~Q3. Which license should this repository use?~~ Resolved: AGPL-3.0, the same as SurgE ([D20](docs/decisions.md)).
 
 ## 14. References
 

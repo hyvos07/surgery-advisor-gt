@@ -21,6 +21,10 @@ Choices someone might later question, with the reason and what would reopen them
 | D15 | 2026-10-05 | Close the incisions before Fix It, and do Fix It last | Accepted, applied in M3 |
 | D16 | 2026-10-06 | Treat a fever only above 100.4 F | Accepted, applied in M3 |
 | D17 | 2026-10-06 | Reset the PRD section 10 targets from the M3 benchmark | Accepted |
+| D18 | 2026-10-06 | In M4, success comes before tools | Accepted |
+| D19 | 2026-10-06 | Tune on seeds 0-199, report the final numbers on fresh seeds | Accepted |
+| D20 | 2026-10-06 | License the repository under AGPL-3.0 | Accepted, not yet applied |
+| D21 | 2026-10-06 | Optional manual-input mode in the web viewer | Accepted, not yet applied |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -189,3 +193,32 @@ Choices someone might later question, with the reason and what would reopen them
 - **Decision (owner):** zero illegal moves; one-turn avoidable deaths at most 0.1% of surgeries in the owner's setup and 1% over the full grid; success at least 98% in the owner's setup, 95% at skill 100 and 50% at skill 0; at least 20% fewer tools per success than the baseline on paired wins, and never more than 1 tool worse for any malady; decisions under 10 ms. The 3-turn lookback count is tracked without a target.
 - **Why:** each target is measurable with `surg bench`, `surg tools` and `surg report`, sits just beyond the M3 result, and keeps the owner's priority of using as few tools as possible.
 - **Revisit if:** M4 meets every target early, or one proves unreachable without hurting another.
+
+## D18. In M4, success comes before tools
+
+- **Context:** some fixes raise success at the cost of tools (Antibiotics for Brainworms, M3), and some save tools at the cost of success (D16 on long trauma surgeries).
+- **Decision (owner):** accept a rule or margin change when success rises and the D17 tools target still holds: at least 20% fewer tools per success than the Train-E baseline on paired wins, and no malady more than 1 tool worse.
+- **Why:** a dead patient costs more than a spare tool, and the tools target already keeps the advisor lean.
+- **Revisit if:** the tools target stops holding.
+
+## D19. Tune on seeds 0-199, report the final numbers on fresh seeds
+
+- **Context:** M4 tunes rules and margins against the same 200 seeds per cell, so the rules may fit those exact surgeries.
+- **Decision (owner):** `surg bench` gains a seed offset. Tuning and every before/after comparison use seeds 0-199; the final MVP numbers in the README come from seeds 1000-1199, which tuning never saw.
+- **Why:** a gap between the two shows overfitting; no gap means the numbers can be trusted.
+- **Revisit if:** the fresh-seed results fall well below the tuning seeds.
+
+## D20. License the repository under AGPL-3.0
+
+- **Context:** the owner will make the repository public at MVP (PRD Q3). The harness and viewer run SurgE's AGPL-3.0 code; the advisor itself never imports it.
+- **Decision (owner):** AGPL-3.0 for the whole repository, the same as SurgE.
+- **Why:** no grey area about combining with SurgE; the advisor stays free to use, and anyone hosting a modified version must publish its source.
+- **Status:** accepted, not yet applied. Adding `LICENSE` and updating the README credits is an M4 task, before the repository goes public. D4's "revisit if published" is answered by this.
+
+## D21. Optional manual-input mode in the web viewer
+
+- **Context:** the advisor only played SurgE surgeries. To use it beside the real game, the player has to tell it what the screen shows.
+- **Decision (owner):** add a manual mode to `surg web` as an option next to the simulator mode, which stays unchanged. The player enters the screen-state fields (PRD section 8), presses Advise and gets the tool, rule and reason; memory carries across turns until a new patient is started.
+- **Why:** it makes the MVP usable while playing without any connection to the game, so hard rule 8 is untouched.
+- **Status:** accepted, not yet applied (M4, PRD FR21).
+
