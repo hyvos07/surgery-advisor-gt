@@ -26,6 +26,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D20 | 2026-10-06 | License the repository under AGPL-3.0 | Accepted, not yet applied |
 | D21 | 2026-10-06 | Optional manual-input mode in the web viewer | Accepted, applied in M4 |
 | D22 | 2026-10-06 | Transfuse only when the pulse could bleed out | Accepted, applied in M4 |
+| D23 | 2026-10-06 | One-turn avoidable deaths use the shared-roll test | Accepted, not yet applied |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -243,3 +244,10 @@ Choices someone might later question, with the reason and what would reopen them
 - **Risk:** bleed-outs rise: a pulse that stays above 1 in the worst case can still fall below it after a Sponge skill fail (a 2% chance in the owner's setup) on a `cant_see` turn at a low pulse. Massive Trauma went slightly down: 97.5% to 96.4% in the owner's setup, 96.9% to 96.4% on fresh seeds, and -0.8 points over the full grid, with its avoidable deaths up from 0 to 5 (seeds 0-199) and 4 (fresh).
 - **Status:** applied in M4.
 - **Revisit if:** bleed-out deaths become a top cause of death in M4 reports.
+
+## D23. One-turn avoidable deaths use the shared-roll test
+
+- **Context:** the D17 target for one-turn avoidable deaths counts a death as avoidable when another tool merely survives the fatal turn. A skill-failed Antibiotics dose adds fever, so on such a turn almost any other tool "survives" it, even though the patient dies the next turn anyway. The deeper lookback had the same kind of bias and was fixed with shared rolls and an original-tool control (M4).
+- **Decision (owner):** at the fatal turn, use the same test as the deeper check: another tool must win 2 of 3 rollouts with shared random draws while the advisor's own tool does not. The D17 limits stay: at most 0.1% of surgeries in the owner's setup and 1% over the full grid. Illegal moves still count as avoidable.
+- **Why:** the target should measure decisions, not skill-fail luck.
+- **Status:** accepted, not yet applied. Note that `--lookback 1` will no longer reproduce the M1-M3 one-turn numbers; earlier reports stay comparable only with each other.
