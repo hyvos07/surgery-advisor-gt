@@ -195,6 +195,105 @@ def test_fixed_from_the_post_fix_scan_text(
     assert memory.fixed
 
 
+# --- Fix It unlocked (D15) ---------------------------------------------------
+
+
+def test_fix_unlocked_when_fix_it_is_in_the_tray(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know)
+    memory.update(make_state(scan_text=HEART_ATTACK), CONFIG)
+    assert not memory.fix_unlocked
+    memory.update(
+        make_state(scan_text=HEART_ATTACK, usable_tools=["sponge", "fix_it"]), CONFIG
+    )
+    assert memory.fix_unlocked
+
+
+def test_fix_unlocked_from_the_fix_text_scan_alone(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # The tray is hidden or Fix It is not listed, but the scan shows the fix text.
+    memory = memory_for(know)
+    memory.update(make_state(scan_text=HEART_ATTACK), CONFIG)
+    assert not memory.fix_unlocked
+    memory.update(make_state(scan_text=HEART_ATTACK_FIX, usable_tools=[]), CONFIG)
+    assert memory.fix_unlocked
+
+
+def test_fix_unlocked_stays_true_until_fixed(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know)
+    memory.update(
+        make_state(scan_text=HEART_ATTACK, usable_tools=["sponge", "fix_it"]), CONFIG
+    )
+    assert memory.fix_unlocked
+    # Neither the tray nor the scan text shows it any more, and it is not fixed.
+    memory.update(make_state(scan_text=HEART_ATTACK, usable_tools=["sponge"]), CONFIG)
+    assert memory.fix_unlocked
+    memory.update(make_state(scan_text=None, usable_tools=[]), CONFIG)
+    assert memory.fix_unlocked
+
+
+def test_fix_unlocked_clears_when_fix_it_is_confirmed(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know)
+    memory.update(
+        make_state(scan_text=HEART_ATTACK_FIX, usable_tools=["sponge", "fix_it"]),
+        CONFIG,
+    )
+    assert memory.fix_unlocked
+    decided(memory, Tool.FIX_IT)
+    # Fix It stays in the tray after it worked; fixed wins.
+    memory.update(
+        make_state(
+            scan_text=HEART_ATTACK_FIX,
+            last_tool_text=FIXED,
+            usable_tools=["sponge", "fix_it"],
+        ),
+        CONFIG,
+    )
+    assert memory.fixed
+    assert not memory.fix_unlocked
+
+
+def test_fix_unlocked_clears_when_the_post_fix_scan_appears(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know)
+    memory.update(make_state(scan_text=HEART_ATTACK_FIX), CONFIG)
+    assert memory.fix_unlocked
+    memory.update(make_state(scan_text=HEART_ATTACK_POST_FIX), CONFIG)
+    assert memory.fixed
+    assert not memory.fix_unlocked
+
+
+def test_fix_unlocked_stays_false_before_diagnosis(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know)
+    memory.update(make_state(), CONFIG)
+    assert not memory.fix_unlocked
+    # A fix-text-like scan cannot unlock without a diagnosis, and an unknown scan
+    # text names nothing.
+    memory.update(make_state(scan_text="The patient has not been diagnosed."), CONFIG)
+    assert memory.diagnosis is None
+    assert not memory.fix_unlocked
+
+
+def test_fix_unlocked_is_false_for_a_malady_without_fix_text(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # Broken Leg has no fix_text; its scan text must not count as one.
+    memory = memory_for(know)
+    memory.update(make_state(scan_text=BROKEN_LEG), CONFIG)
+    assert memory.diagnosis is not None
+    assert memory.diagnosis.fix_text is None
+    assert not memory.fix_unlocked
+
+
 def test_antibiotics_dose_is_remembered_only_when_confirmed(
     know: Knowledge, make_state: MakeState
 ) -> None:

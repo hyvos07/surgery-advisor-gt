@@ -138,4 +138,15 @@ Choices someone might later question, with the reason and what would reopen them
   - P6 (Close): also fires when Fix It is unlocked but not done yet.
   - P3 (Fix): fires only when no incision is open.
 - **Tests to write first:** a Heart Attack at its needed incisions with Fix It unlocked and the patient asleep gets Stitches (P6), not Fix It; the same patient with 0 incisions gets Fix It (P3) and P5 stays silent; a Broken Heart with a shattered bone gets Pins before any closing.
-- **Status:** accepted, not yet applied. It is an open task in [PLAN.md](../PLAN.md) (M3), to be benchmarked against the current rules in the owner's setup and the full grid, with the numbers added here.
+- **Result (benchmark, 200 runs per cell, draft Antiseptic mode, against the D13 rules):**
+
+  | | Owner's setup, before | after | Full grid, before | after |
+  | --- | ---: | ---: | ---: | ---: |
+  | Success | 96.2% | 96.7% | 67.7% | 70.9% |
+  | Avoidable deaths | 82 | 76 | 3,583 | 3,414 |
+  | Unlucky deaths | 1,073 | 939 | 47,764 | 42,752 |
+  | Timeouts | 63 | 40 | 994 | 932 |
+  | Tools per success | 17.2 | 16.3 | 18.7 | 18.0 |
+
+  The gain grows as skill falls (+1.1 points at skill 100, +5.0 at skill 0), where fewer turns with an incision open matter most. Zero illegal moves.
+- **Status:** applied in M3.

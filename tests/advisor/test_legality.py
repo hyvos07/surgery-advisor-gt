@@ -245,6 +245,7 @@ def memories(draw: st.DrawFn) -> Memory:
         memory.incisions_needed = diagnosis.incisions_needed
         memory.needs_fix = diagnosis.needs_fix
     memory.fixed = draw(st.booleans())
+    memory.fix_unlocked = draw(st.booleans())
     memory.lab_kit_done = draw(st.booleans())
     memory.antibiotics_dosed = draw(st.booleans())
     memory.fever_negative = draw(st.booleans())

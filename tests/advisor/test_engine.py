@@ -3,6 +3,7 @@
 import json
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -169,3 +170,26 @@ def test_decide_is_deterministic(know: Knowledge, make_state: MakeState) -> None
         return [engine.decide(s, memory, CONFIG).to_dict() for s in script]
 
     assert play() == play()
+
+
+def test_decide_closes_the_incisions_before_fix_it(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # D15: Heart Attack at its 2 needed incisions, Fix It usable, patient asleep.
+    memory = Memory.new(know)
+    tools = ["sponge", "antiseptic", "stitches", "scalpel", "fix_it"]
+    open_state = make_state(
+        scan_text=HEART_ATTACK,
+        status="unconscious",
+        incisions=2,
+        bones={"broken": 0, "shattered": 0},
+        usable_tools=tools,
+    )
+    decision = engine.decide(open_state, memory, CONFIG)
+    assert (decision.rule, decision.tool) == ("P6", Tool.STITCHES)
+    assert memory.fix_unlocked
+    # One closed: keep closing. All closed: now Fix It, and no cutting again.
+    one = engine.decide(replace(open_state, incisions=1), memory, CONFIG)
+    assert (one.rule, one.tool) == ("P6", Tool.STITCHES)
+    closed = engine.decide(replace(open_state, incisions=0), memory, CONFIG)
+    assert (closed.rule, closed.tool) == ("P3", Tool.FIX_IT)

@@ -73,6 +73,10 @@ class Memory:
     incisions_needed: int | None = None  # with Tough Skin; None until diagnosed
     needs_fix: bool | None = None  # None until diagnosed
     fixed: bool = False
+    # Fix It has been available (in the tray, or the scan shows the malady's fix
+    # text) and is not done yet. Sticky, because SurgE keeps it unlocked until Fix It
+    # succeeds. The advisor stops cutting and closes the incisions first (D15).
+    fix_unlocked: bool = False
     condition: Condition | None = None  # the condition whose text was shown
     assumed_conditions: frozenset[str] = frozenset()  # ids assumed while hidden
     sleep_left: int = 0
@@ -111,6 +115,7 @@ class Memory:
         self._update_assumptions()
         self._update_incisions_needed()
         self._update_tool_effects(confirmed, state)
+        self._update_fix_unlocked(state)
         self._update_sleep(confirmed, state, config)
         if self.prev_temperature is None:
             self.temperature_delta = None
@@ -173,6 +178,22 @@ class Memory:
             == normalize_text(self.diagnosis.post_fix_text)
         ):
             self.fixed = True
+
+    def _update_fix_unlocked(self, state: ScreenState) -> None:
+        # Runs after `_update_tool_effects`, so `fixed` is already current.
+        if self.fixed:
+            self.fix_unlocked = False
+            return
+        if Tool.FIX_IT in state.usable_tools:
+            self.fix_unlocked = True
+            return
+        fix_text = self.diagnosis.fix_text if self.diagnosis is not None else None
+        if (
+            fix_text is not None
+            and state.scan_text is not None
+            and normalize_text(state.scan_text) == normalize_text(fix_text)
+        ):
+            self.fix_unlocked = True
 
     def _update_sleep(
         self, confirmed: Tool | None, state: ScreenState, config: Config

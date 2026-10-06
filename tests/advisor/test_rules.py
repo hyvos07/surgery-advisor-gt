@@ -598,6 +598,139 @@ def test_p6_waits_for_a_diagnosis(know: Knowledge, make_state: MakeState) -> Non
     silent(rules.rule_p6_close, make_state(incisions=1), memory_for(know))
 
 
+# --- Close the incisions before Fix It (D15) ---------------------------------
+
+
+def test_p3_waits_while_an_incision_is_open(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know, "Heart Attack", fix_unlocked=True)
+    tools = ["sponge", "fix_it", "stitches"]
+    silent(
+        rules.rule_p3_fix,
+        make_state(status="unconscious", incisions=2, usable_tools=tools),
+        memory,
+    )
+    fires(
+        rules.rule_p3_fix,
+        "P3",
+        Tool.FIX_IT,
+        make_state(status="unconscious", incisions=0, usable_tools=tools),
+        memory,
+    )
+
+
+def test_d15_closes_every_incision_before_fix_it(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # Heart Attack at its 2 needed incisions, Fix It usable, patient asleep.
+    memory = memory_for(know, "Heart Attack", fix_unlocked=True)
+    state = make_state(
+        status="unconscious",
+        incisions=2,
+        bones={"broken": 0, "shattered": 0},
+        usable_tools=["sponge", "fix_it", "stitches"],
+    )
+    silent(rules.rule_p3_fix, state, memory)
+    decision = run(rules.rule_p6_close, state, memory)
+    assert decision is not None
+    assert (decision.rule, decision.tool) == ("P6", Tool.STITCHES)
+    assert decision.reason == "Fix It is unlocked; close the incisions before using it"
+    assert len(decision.reason) < MAX_REASON
+    # One incision is still open: keep closing.
+    fires(
+        rules.rule_p6_close,
+        "P6",
+        Tool.STITCHES,
+        dataclasses.replace(state, incisions=1),
+        memory,
+    )
+
+
+def test_d15_uses_fix_it_with_every_incision_closed(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know, "Heart Attack", fix_unlocked=True)
+    state = make_state(
+        status="unconscious",
+        incisions=0,
+        usable_tools=["sponge", "fix_it", "stitches"],
+    )
+    fires(rules.rule_p3_fix, "P3", Tool.FIX_IT, state, memory)
+    silent(rules.rule_p5_cut, state, memory)
+    silent(rules.rule_p6_close, state, memory)
+
+
+def test_d15_pins_a_shattered_bone_before_closing(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know, "Heart Attack", fix_unlocked=True)
+    state = make_state(
+        status="unconscious",
+        incisions=2,
+        bones={"broken": 1, "shattered": 1},
+        usable_tools=["sponge", "fix_it", "pins", "stitches"],
+    )
+    fires(rules.rule_p4_pin, "P4", Tool.PINS, state, memory)
+    # P6 stays silent while a bone is shattered, so nothing closes before P4 acts.
+    silent(rules.rule_p6_close, state, memory)
+    # P3 is already blocked by the open incision.
+    silent(rules.rule_p3_fix, state, memory)
+
+
+def test_d15_stops_cutting_once_fix_it_is_unlocked(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # Below the needed count, but Fix It is already unlocked: no cut, no prep.
+    unlocked = memory_for(know, "Heart Attack", fix_unlocked=True)
+    locked = memory_for(know, "Heart Attack")
+    asleep = make_state(status="unconscious", incisions=1)
+    silent(rules.rule_p5_cut, asleep, unlocked)
+    fires(rules.rule_p5_cut, "P5", Tool.SCALPEL, asleep, locked)
+    dirty = make_state(status="unconscious", incisions=1, site="unclean")
+    silent(rules.rule_p9_clean_before_cutting, dirty, unlocked)
+    fires(rules.rule_p9_clean_before_cutting, "P9", Tool.ANTISEPTIC, dirty, locked)
+    awake = make_state(status="awake", incisions=1)
+    silent(rules.rule_p10_prep_for_cutting, awake, unlocked)
+    fires(rules.rule_p10_prep_for_cutting, "P10", Tool.ANESTHETIC, awake, locked)
+
+
+def test_d15_still_cuts_for_a_shattered_bone_once_unlocked(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # The shattered-bone branch is unchanged by D15.
+    fires(
+        rules.rule_p5_cut,
+        "P5",
+        Tool.SCALPEL,
+        make_state(
+            status="unconscious", incisions=0, bones={"broken": 1, "shattered": 1}
+        ),
+        memory_for(know, "Heart Attack", fix_unlocked=True),
+    )
+
+
+def test_d15_keeps_the_fixed_reason_once_fixed(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    state = make_state(
+        status="unconscious", incisions=2, bones={"broken": 0, "shattered": 0}
+    )
+    # Fixed, even if the unlock flag were somehow still set: the fixed reason wins.
+    for fields in ({"fixed": True}, {"fixed": True, "fix_unlocked": True}):
+        decision = run(
+            rules.rule_p6_close, state, memory_for(know, "Heart Attack", **fields)
+        )
+        assert decision is not None
+        assert decision.rule == "P6"
+        assert decision.reason == "Malady is fixed; close the incision"
+    # Before the unlock, P5 still cuts toward the needed count and P6 is silent.
+    before = memory_for(know, "Heart Attack")
+    one = dataclasses.replace(state, incisions=1)
+    fires(rules.rule_p5_cut, "P5", Tool.SCALPEL, one, before)
+    silent(rules.rule_p6_close, one, before)
+
+
 def test_p7_splints_broken_bones_with_no_incision_open(
     know: Knowledge, make_state: MakeState
 ) -> None:

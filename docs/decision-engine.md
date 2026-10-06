@@ -64,10 +64,10 @@ When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable
 | --- | --- | --- | --- |
 | P1 | Diagnose | No diagnosis yet | Ultrasound |
 | P2 | Break fever | Fever is positive (fever text shown, or temperature rose since last turn) and not yet known to be negative | Lab Kit if not done, else Antibiotics |
-| P3 | Fix | Fix It is usable | Fix It |
+| P3 | Fix | Fix It is usable and no incision is open ([D15](decisions.md#d15-close-the-incisions-before-fix-it-and-do-fix-it-last)) | Fix It |
 | P4 | Pin | Shattered bones and an incision open | Pins |
 | P5 | Cut | A cut is needed (see below) and status is `unconscious` or `coming_to` | Scalpel |
-| P6 | Close | Incision open, malady fixed (or no Fix It needed), no shattered bones | Stitches |
+| P6 | Close | Incision open, no shattered bones, and the malady is fixed (or needs no Fix It) or Fix It is unlocked but not done (D15) | Stitches |
 | P7 | Splint | Diagnosed, broken bones, no incision open | Splint |
 | P8 | Surface bleeding | Bleeding, no incision open | Stitches |
 | P9 | Clean before cutting | A cut is needed next, site not `clean`, fever not yet known to be negative | Antiseptic |
@@ -78,10 +78,12 @@ When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable
 
 "A cut is needed" requires a diagnosis. Without one, the advisor never anesthetizes or cuts. With a diagnosis, a cut is needed in either of two cases:
 
-- the malady needs Fix It, is not fixed yet, and incisions are below the needed count; or
+- the malady needs Fix It, is not fixed yet, Fix It is not unlocked yet (`fix_unlocked`), and incisions are below the needed count; or
 - shattered bones are shown and no incision is open.
 
 A malady that needs no Fix It (for example Broken Leg) is cut only to reach shattered bones for Pins. A fixed malady is never cut again: after Fix It, incisions below the count are only Stitches closing the site.
+
+**Close before Fix It (D15).** SurgE unlocks Fix It once the needed incisions are reached and keeps it unlocked, and in the tray, after the incisions are stitched closed, until Fix It succeeds. So once Fix It is unlocked the advisor stops cutting (P5, P9 and P10 go quiet), P4 still pins any shattered bone, P6 closes every incision, and only then does P3 use Fix It with no incision open. The order for a Heart Attack is: cut to the needed count, Stitches back to 0, Fix It last. Each turn with an incision open costs pulse and dirt, and a Fix It skill fail then costs a turn with the site closed.
 
 ## Antiseptic modes
 
@@ -119,7 +121,8 @@ The advisor remembers what the screen stops showing. Memory changes only when `l
 | --- | --- | --- |
 | `diagnosis` | Scan text after Ultrasound (or at start for Nose Job). Set once and never changed: the scan text later switches to the malady's fix text and post-fix text, and two post-fix texts are shared by different maladies, so only the scan text or fix text identifies a malady | P1, every "cut needed" guard |
 | `incisions_needed` | Malady table, +1 for Tough Skin | P5, legality check |
-| `needs_fix`, `fixed` | Malady table; "You fixed the issue!" | P3, P6 |
+| `needs_fix`, `fixed` | Malady table; "You fixed the issue!" or the malady's post-fix scan text | P6, P5 and the other "cut needed" guards |
+| `fix_unlocked` | Becomes true when Fix It is in `usable_tools`, or the scan text is the malady's fix text. Sticky: stays true when the tray or scan text no longer shows it (SurgE keeps Fix It unlocked after the incisions close), and is cleared once `fixed` is true (D15) | P3 (indirectly), P5, P6, P9, P10 |
 | `condition` | Condition text at start, or revealed by Ultrasound | Margins, E3, E6 |
 | `sleep_left` | Set to 9 (4 if Hyperactive) on "The patient is now asleep."; minus 1 per turn while the heart beats | Forecast, E4 |
 | `lab_kit_done` | "…have antibiotics at the ready." | E6, P2, P11 |

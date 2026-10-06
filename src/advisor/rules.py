@@ -63,12 +63,19 @@ def _broken(s: ScreenState) -> bool:
 def _cut_needed(s: ScreenState, m: Memory) -> bool:
     """True if another cut is needed. Always False without a diagnosis.
 
-    Cuts are for Fix It (until it is done) and for reaching shattered bones. Once the
-    malady is fixed, incisions below the count are just Stitches closing the site.
+    Cuts are for Fix It (until it is unlocked) and for reaching shattered bones. Once
+    Fix It is unlocked the advisor closes the incisions instead of cutting more (D15),
+    and once the malady is fixed, incisions below the count are just Stitches closing
+    the site.
     """
     if m.diagnosis is None or m.incisions_needed is None:
         return False
-    for_fix = m.needs_fix and not m.fixed and s.incisions < m.incisions_needed
+    for_fix = (
+        m.needs_fix
+        and not m.fixed
+        and not m.fix_unlocked
+        and s.incisions < m.incisions_needed
+    )
     return for_fix or (_shattered(s) and not s.incision_open)
 
 
@@ -201,8 +208,11 @@ def rule_p2_break_fever(
 
 
 def rule_p3_fix(s: ScreenState, m: Memory, f: Forecast, c: Config) -> Decision | None:
-    if Tool.FIX_IT in s.usable_tools:
-        return Decision(Tool.FIX_IT, "P3", "Fix It is ready to use")
+    # Fix It works with an incision open too, but closing first is cheaper (D15).
+    if Tool.FIX_IT in s.usable_tools and not s.incision_open:
+        return Decision(
+            Tool.FIX_IT, "P3", "Fix It is unlocked and every incision is closed"
+        )
     return None
 
 
@@ -223,8 +233,16 @@ def rule_p5_cut(s: ScreenState, m: Memory, f: Forecast, c: Config) -> Decision |
 
 
 def rule_p6_close(s: ScreenState, m: Memory, f: Forecast, c: Config) -> Decision | None:
-    if s.incision_open and _fixed(m) and not _shattered(s):
+    if not s.incision_open or _shattered(s):
+        return None
+    if _fixed(m):
         return Decision(Tool.STITCHES, "P6", "Malady is fixed; close the incision")
+    if m.fix_unlocked:
+        return Decision(
+            Tool.STITCHES,
+            "P6",
+            "Fix It is unlocked; close the incisions before using it",
+        )
     return None
 
 
