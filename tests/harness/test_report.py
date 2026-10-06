@@ -343,10 +343,37 @@ def test_mistake_depth_better_tools_and_illegal_moves() -> None:
         {"turns_back": 2, "avoidable": 1},
     ]
     assert analysis["illegal_move_deaths"] == 1
+    # hand_built() is an old-format report: no `alternatives`, so that column is blank.
     assert analysis["better_tools"] == [
-        {"tool": "sponge", "avoidable": 3},
-        {"tool": "clamp", "avoidable": 1},
+        {"tool": "sponge", "avoidable": 3, "among_all": None},
+        {"tool": "clamp", "avoidable": 1, "among_all": None},
     ]
+
+
+def test_better_tools_among_all_working_alternatives() -> None:
+    a, b = hand_built()
+    working = {1: ["clamp", "sponge"], 2: ["sponge", "stitches"]}
+    for c in a["cells"]:
+        for d in c["deaths"]:
+            if d["outcome"] == AVOID and d["mistake_turns_back"] is not None:
+                d["alternatives"] = working.get(d["seed"], [d["alternative"]])
+    # Seed 2 is in two cells, so sponge is listed in 4 deaths and credited in 3.
+    analysis = death_analysis(a)
+    assert analysis["better_tools"] == [
+        {"tool": "sponge", "avoidable": 3, "among_all": 4},
+        {"tool": "clamp", "avoidable": 1, "among_all": 1},
+        {"tool": "stitches", "avoidable": 0, "among_all": 2},
+    ]
+    text = render_report_markdown(build_report(a, b))
+    assert "| Tool | Avoidable deaths | Among all working alternatives |" in text
+    assert "| sponge | 3 | 4 |" in text
+    assert "| stitches | 0 | 2 |" in text
+
+
+def test_a_report_without_alternatives_renders_a_blank_column() -> None:
+    text = render_report_markdown(build_report(*hand_built()))
+    assert "| sponge | 3 |  |" in text
+    assert "| clamp | 1 |  |" in text
 
 
 def test_maladies_are_ranked_by_avoidable_deaths() -> None:

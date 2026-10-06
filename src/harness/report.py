@@ -189,6 +189,8 @@ def death_analysis(a: Report, examples: int = 3) -> Report:
                 "last_rules": list(d["last_rules"]),
                 "mistake_turns_back": d.get("mistake_turns_back"),
                 "alternative": d.get("alternative"),
+                # None for a report made before the key existed.
+                "alternatives": d.get("alternatives"),
             }
             death["mistake_rule"] = _mistake_rule(death)
             death["link"] = death_link(death, policy)
@@ -255,6 +257,16 @@ def death_analysis(a: Report, examples: int = 3) -> Report:
     ]
     illegal = sum(1 for d in avoidable if d["mistake_turns_back"] is None)
     better_tools = Counter(str(d["alternative"]) for d in avoidable if d["alternative"])
+    # Every alternative that met the bar, not only the credited one. Blank (None)
+    # when the report has no `alternatives` key.
+    has_all = any(d["alternatives"] is not None for d in avoidable)
+    among_all = Counter(
+        str(t) for d in avoidable for t in (d["alternatives"] or ()) if t
+    )
+    tools_listed = sorted(
+        set(better_tools) | set(among_all),
+        key=lambda t: (-better_tools[t], -among_all[t], t),
+    )
 
     maladies = []
     for malady in sorted({d["malady"] for d in deaths}):
@@ -295,7 +307,12 @@ def death_analysis(a: Report, examples: int = 3) -> Report:
         "mistake_depth": mistake_depth,
         "illegal_move_deaths": illegal,
         "better_tools": [
-            {"tool": t, "avoidable": better_tools[t]} for t in _ranked(better_tools)
+            {
+                "tool": t,
+                "avoidable": better_tools[t],
+                "among_all": among_all[t] if has_all else None,
+            }
+            for t in tools_listed
         ],
         "maladies": maladies,
         "examples": shown,
@@ -442,13 +459,17 @@ def render_report_markdown(report: Report) -> str:
         "",
         "## Better tools",
         "",
-        "The first usable tool that would have won, over all avoidable deaths.",
+        "Over all avoidable deaths: how often the tool was the credited one (the "
+        "alternative with the most rollout wins at the mistake turn), and how often "
+        "it was among all the alternatives that worked there. Blank for a report "
+        "made before `alternatives` was recorded.",
         "",
-        "| Tool | Avoidable deaths |",
-        "| --- | ---: |",
+        "| Tool | Avoidable deaths | Among all working alternatives |",
+        "| --- | ---: | ---: |",
     ]
     for r in an["better_tools"]:
-        lines.append(f"| {r['tool']} | {r['avoidable']} |")
+        among = "" if r["among_all"] is None else r["among_all"]
+        lines.append(f"| {r['tool']} | {r['avoidable']} | {among} |")
 
     lines += [
         "",

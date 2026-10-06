@@ -1,19 +1,24 @@
 """The death lookback: avoidable at an earlier turn, found by playing branches on."""
 
+import random
 from typing import Any
 
 import pytest
 
 import cli
+from harness import runner
 from harness.bench import Grid, _check_comparable, run_cell, run_grid
 from harness.runner import (
     AVOIDABLE_DEATH,
+    BRANCH_WINS_NEEDED,
     UNLUCKY_DEATH,
     AdvisorPolicy,
     Result,
     Settings,
     Surgery,
+    _rollouts,
     policy_by_name,
+    rollout_rng,
     run_surgery,
 )
 
@@ -52,15 +57,124 @@ def test_lookback_is_one_by_default() -> None:
     assert fields(default) == BASELINE_LOOKBACK_1[19]
 
 
-def test_lookback_3_turns_an_unlucky_death_avoidable() -> None:
-    assert fields(play("baseline", 19, 3)) == (AVOIDABLE_DEATH, 1, "stitches")
-    assert fields(play("baseline", 35, 3)) == (AVOIDABLE_DEATH, 1, "clamp")
-    # The advisor too: two turns before the fatal one Stitches would have won.
-    assert fields(play("advisor", 10, 3)) == (AVOIDABLE_DEATH, 2, "stitches")
+# Pinned by scanning seeds: the advisor at Heart Attack, no condition, skill 50, and
+# at Fatty Liver. Both deaths were unlucky at lookback 1.
+ADVISOR_HEART_50 = Settings("Heart Attack", "none", 50, None, 44)
+ADVISOR_LIVER_50 = Settings("Fatty Liver", "none", 50, None, 71)
+
+
+def play_settings(settings: Settings, lookback: int = 3) -> Result:
+    return run_surgery(
+        settings, policy_by_name("advisor"), "advisor", lookback=lookback
+    )
+
+
+def branch_at(
+    settings: Settings, back: int, name: str = "advisor"
+) -> tuple[Surgery, int, str]:
+    """The branch point `back` turns before the fatal turn, and the tool used there."""
+    surgery = Surgery(settings, policy_by_name(name), name, lookback=3)
+    while not surgery.ended:
+        surgery.step()
+    turn = len(surgery.applied) - 1 - back
+    return surgery._replay_to(turn), turn, surgery.applied[turn]
+
+
+def test_lookback_3_an_unlucky_death_stays_avoidable_when_the_original_fails() -> None:
+    result = play_settings(ADVISOR_HEART_50)
+    assert (result.outcome, result.mistake_turns_back) == (AVOIDABLE_DEATH, 1)
+    assert result.alternative == "sponge"
+    assert result.alternatives == ("sponge", "stitches", "lab_kit", "antiseptic")
+    assert play_settings(ADVISOR_HEART_50, 1).outcome == UNLUCKY_DEATH
+
+
+def test_the_credited_alternative_has_the_most_wins_not_the_first_in_the_tray() -> None:
+    result = play_settings(ADVISOR_LIVER_50)
+    assert (result.outcome, result.mistake_turns_back) == (AVOIDABLE_DEATH, 2)
+    assert result.alternative == "transfusion"
+    assert result.alternatives == ("transfusion", "clamp")
+    branch, turn, original = branch_at(ADVISOR_LIVER_50, 2)
+    tray = branch.state["usable_tools"]
+    assert tray.index("sponge") < tray.index("transfusion")  # tray order says Sponge
+    wins = {
+        tool: _rollouts(branch, turn, tool, run_all_when_working=True)[0]
+        for tool in tray
+        if tool != original
+    }
+    assert wins["sponge"] < BRANCH_WINS_NEEDED  # the old rule credited it, wrongly
+    assert wins["transfusion"] == max(wins.values())
+    assert {t for t, w in wins.items() if w >= BRANCH_WINS_NEEDED} == set(
+        result.alternatives
+    )
+    assert _rollouts(branch, turn, original, run_all_when_working=True)[0] < 2
+
+
+def test_lookback_3_a_death_the_original_tool_wins_with_fresh_draws_is_luck() -> None:
+    # Under the old rule these were avoidable (baseline seed 29: Sponge one turn back;
+    # advisor seed 10: Stitches two turns back) because some other tool won 2 of 3
+    # rollouts. The tool really used wins 2 of 3 with the same draws, so the death
+    # at that depth is luck, and nothing deeper is found.
+    for name, settings, back in (
+        ("baseline", Settings(*HEART_ATTACK[:3], HEART_ATTACK[3], 29), 1),
+        ("advisor", Settings(*HEART_ATTACK[:3], HEART_ATTACK[3], 10), 2),
+    ):
+        result = run_surgery(settings, policy_by_name(name), name, lookback=3)
+        assert fields(result) == (UNLUCKY_DEATH, None, None)
+        assert result.alternatives == ()
+        branch, turn, original = branch_at(settings, back, name)
+        working = [
+            tool
+            for tool in branch.state["usable_tools"]
+            if tool != original
+            and _rollouts(branch, turn, tool, run_all_when_working=True)[0] >= 2
+        ]
+        assert working  # the old rule's reason to call it avoidable
+        assert _rollouts(branch, turn, original, run_all_when_working=False)[0] >= 2
+
+
+def test_rollout_rng_does_not_depend_on_the_tool() -> None:
+    a, b = rollout_rng(7, 3, 1), rollout_rng(7, 3, 1)
+    assert [a.random() for _ in range(5)] == [b.random() for _ in range(5)]
+    first = rollout_rng(7, 3, 0).random()
+    assert rollout_rng(7, 3, 1).random() != first
+    assert rollout_rng(7, 4, 0).random() != first
+    assert rollout_rng(8, 3, 0).random() != first
+
+
+def test_every_tool_at_a_turn_gets_the_same_draws(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    branch, turn, original = branch_at(ADVISOR_LIVER_50, 2)
+    asked: dict[str, list[tuple[int, int, int]]] = {}
+    current = ""
+
+    def spy(seed: int, turn: int, rollout: int) -> random.Random:
+        asked.setdefault(current, []).append((seed, turn, rollout))
+        return rollout_rng(seed, turn, rollout)
+
+    monkeypatch.setattr(runner, "rollout_rng", spy)
+    for current in ("sponge", "transfusion", original):
+        _rollouts(branch, turn, current, run_all_when_working=True)
+    every = [(71, turn, 0), (71, turn, 1), (71, turn, 2)]
+    for tool, calls in asked.items():  # a tool that cannot win stops early
+        assert calls == every[: len(calls)], tool
+    assert asked["transfusion"] == every
+
+
+def test_stopping_early_gives_the_same_verdict_as_running_every_rollout() -> None:
+    branch, turn, original = branch_at(ADVISOR_LIVER_50, 2)
+    for tool in branch.state["usable_tools"]:
+        full, _ = _rollouts(branch, turn, tool, run_all_when_working=True)
+        early, _ = _rollouts(branch, turn, tool, run_all_when_working=False)
+        assert (full >= BRANCH_WINS_NEEDED) == (early >= BRANCH_WINS_NEEDED)
 
 
 def test_lookback_3_keeps_what_lookback_1_already_found() -> None:
     assert fields(play("baseline", 3, 3)) == (AVOIDABLE_DEATH, 0, "transfusion")
+    # At the fatal turn every surviving tool is listed, in tray order.
+    result = play("baseline", 3, 3)
+    assert result.alternatives[0] == "transfusion"
+    assert len(set(result.alternatives)) == len(result.alternatives)
 
 
 def test_lookback_3_leaves_a_hopeless_death_unlucky() -> None:
@@ -83,6 +197,7 @@ def test_the_new_fields_are_none_when_nothing_died() -> None:
         lookback=3,
     )
     assert result.mistake_turns_back is None and result.alternative is None
+    assert result.alternatives == ()
 
 
 def test_an_illegal_move_is_avoidable_with_no_turn_or_tool() -> None:
@@ -101,6 +216,7 @@ def test_an_illegal_move_is_avoidable_with_no_turn_or_tool() -> None:
         )
         if r.outcome == AVOIDABLE_DEATH:
             assert r.illegal_moves == 1 and fields(r) == (AVOIDABLE_DEATH, None, None)
+            assert r.alternatives == ()
             return
     pytest.fail("no seed died")
 
@@ -108,6 +224,8 @@ def test_an_illegal_move_is_avoidable_with_no_turn_or_tool() -> None:
 def test_same_settings_and_lookback_give_the_same_fields() -> None:
     for name, seed in (("baseline", 19), ("advisor", 8), ("baseline", 12)):
         assert fields(play(name, seed, 3)) == fields(play(name, seed, 3))
+    assert play_settings(ADVISOR_LIVER_50) == play_settings(ADVISOR_LIVER_50)
+    assert play_settings(ADVISOR_HEART_50) == play_settings(ADVISOR_HEART_50)
 
 
 def test_the_replay_reaches_the_same_screens_as_the_surgery() -> None:
@@ -177,11 +295,11 @@ def test_bench_cli_refuses_lookback_zero(capsys: pytest.CaptureFixture[str]) -> 
 def test_play_prints_the_two_fields_for_a_death(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    args = ["play", "--malady", "Heart Attack", "--condition", "none", "--skill", "0"]
-    code = cli.main([*args, "--seed", "19", "--policy", "baseline", "--lookback", "3"])
+    args = ["play", "--malady", "Heart Attack", "--condition", "none", "--skill", "50"]
+    code = cli.main([*args, "--seed", "44", "--policy", "advisor", "--lookback", "3"])
     assert code == 0
     out = capsys.readouterr().out
-    assert "mistake_turns_back 1, alternative stitches" in out
+    assert "mistake_turns_back 1, alternative sponge" in out
 
 
 def test_play_rejects_lookback_zero(capsys: pytest.CaptureFixture[str]) -> None:
@@ -192,11 +310,18 @@ def test_play_rejects_lookback_zero(capsys: pytest.CaptureFixture[str]) -> None:
 def test_a_bench_cell_records_the_fields_on_each_death() -> None:
     cell = run_cell(("baseline", HEART_ATTACK, 40, 3))
     deaths = {d["seed"]: d for d in cell["deaths"]}
-    assert deaths[19]["mistake_turns_back"] == 1
-    assert deaths[19]["alternative"] == "stitches"
+    assert deaths[3]["mistake_turns_back"] == 0
+    assert deaths[3]["alternative"] == "transfusion"
+    assert deaths[3]["alternatives"][0] == "transfusion"
+    assert deaths[29]["mistake_turns_back"] is None  # luck: the original wins too
     assert deaths[12]["mistake_turns_back"] is None
-    assert deaths[12]["alternative"] is None
-    assert all({"mistake_turns_back", "alternative"} <= set(d) for d in deaths.values())
+    assert deaths[12]["alternative"] is None and deaths[12]["alternatives"] == []
+    keys = {"mistake_turns_back", "alternative", "alternatives"}
+    assert all(keys <= set(d) for d in deaths.values())
+    heart = run_cell(("advisor", ("Heart Attack", "none", 50, None), 50, 3))
+    (death,) = [d for d in heart["deaths"] if d["seed"] == 44]
+    assert death["mistake_turns_back"] == 1 and death["alternative"] == "sponge"
+    assert death["alternatives"] == ["sponge", "stitches", "lab_kit", "antiseptic"]
 
 
 def test_the_report_records_the_lookback() -> None:

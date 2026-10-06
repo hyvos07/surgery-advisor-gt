@@ -27,7 +27,8 @@ from harness.surge import (
 MAX_TURNS = 80  # stands in for the real game's 2-minute timer
 
 # The lookback asks "would a different tool at an earlier turn have saved it?" by
-# playing the surgery on from there: the alternative must win 2 of 3 rollouts.
+# playing the surgery on from there: the alternative must win 2 of 3 rollouts, and
+# the tool the policy really used must not (same draws for both).
 BRANCH_ROLLOUTS = 3
 BRANCH_WINS_NEEDED = 2
 
@@ -89,6 +90,9 @@ class Result:
     # when the cause was an illegal move, and for surgeries that did not die.
     mistake_turns_back: int | None = None
     alternative: str | None = None
+    # Every alternative that worked at that turn, best first (`alternative` is the
+    # first). Empty whenever `alternative` is None.
+    alternatives: tuple[str, ...] = ()
 
 
 class AdvisorPolicy:
@@ -201,6 +205,7 @@ class Surgery:
         self._pristine_policy = copy.deepcopy(policy) if lookback > 1 else None
         self.mistake_turns_back: int | None = None
         self.alternative: str | None = None
+        self.alternatives: tuple[str, ...] = ()
         self.rng = random.Random(settings.seed)
         with surge_random(self.rng):
             self.patient = start_surgery(
@@ -302,6 +307,7 @@ class Surgery:
             end_text=self.end_text,
             mistake_turns_back=self.mistake_turns_back,
             alternative=self.alternative,
+            alternatives=self.alternatives,
         )
 
     def _classify_death(self) -> str:
@@ -311,7 +317,9 @@ class Surgery:
         tool from that same state and random draw; one that survives the turn makes
         the death avoidable. With `lookback` above 1, the same is asked of each of
         the turns before it, newest first, but there an alternative has to win the
-        whole surgery (see `_branch_works`). Nothing found means unlucky.
+        whole surgery (see `_rollouts`), and the tool the policy really applied,
+        given the same draws, must not win it too (then the death was luck at that
+        depth). Nothing found means unlucky.
         """
         if self.illegal_moves:
             return AVOIDABLE_DEATH
@@ -326,6 +334,7 @@ class Surgery:
         for tool in before:
             with surge_random(rng):
                 patient.UseTool(TOOL_TYPES[tool])
+        survivors: list[str] = []
         for alternative in observe(patient)["usable_tools"]:
             if alternative == fatal:
                 continue
@@ -334,17 +343,35 @@ class Surgery:
             with surge_random(trial_rng):
                 trial.UseTool(TOOL_TYPES[alternative])
             if not trial.IsSurgeryEnded or _is_success(trial):
-                self.mistake_turns_back, self.alternative = 0, alternative
-                return AVOIDABLE_DEATH
+                survivors.append(alternative)
+        if survivors:
+            self.mistake_turns_back, self.alternative = 0, survivors[0]
+            self.alternatives = tuple(survivors)
+            return AVOIDABLE_DEATH
         for back in range(1, min(self.lookback, len(self.applied))):
             turn = len(self.applied) - 1 - back
             branch = self._replay_to(turn)
-            for alternative in branch.state["usable_tools"]:
-                if alternative != self.applied[turn] and _branch_works(
-                    branch, turn, alternative
-                ):
-                    self.mistake_turns_back, self.alternative = back, alternative
-                    return AVOIDABLE_DEATH
+            original = self.applied[turn]
+            working: list[tuple[int, int, int, str]] = []
+            for order, alternative in enumerate(branch.state["usable_tools"]):
+                if alternative == original:
+                    continue
+                wins, tools = _rollouts(
+                    branch, turn, alternative, run_all_when_working=True
+                )
+                if wins >= BRANCH_WINS_NEEDED:
+                    working.append((-wins, tools, order, alternative))
+            if not working:
+                continue
+            # The original tool is rolled out only when an alternative worked, and
+            # with the same draws: if it wins too, the death was luck at this depth.
+            wins, _ = _rollouts(branch, turn, original, run_all_when_working=False)
+            if wins >= BRANCH_WINS_NEEDED:
+                continue
+            working.sort()
+            self.mistake_turns_back, self.alternative = back, working[0][3]
+            self.alternatives = tuple(w[3] for w in working)
+            return AVOIDABLE_DEATH
         return UNLUCKY_DEATH
 
     def _replay_to(self, turn: int) -> "Surgery":
@@ -367,29 +394,43 @@ class Surgery:
         return replay
 
 
-def _branch_works(branch: Surgery, turn: int, tool: str) -> bool:
-    """True if applying `tool` at the branch point wins at least 2 of 3 rollouts.
+def rollout_rng(seed: int, turn: int, rollout: int) -> random.Random:
+    """The random state of rollout `rollout` at branch turn `turn`.
+
+    It does not depend on the tool tried: every tool at a turn, the advisor's own
+    included, gets the same draws in rollout r (common random numbers), so a tool
+    is not credited or blamed for luck the others did not have.
+    """
+    return random.Random(f"{seed}-{turn}-r{rollout}")
+
+
+def _rollouts(
+    branch: Surgery, turn: int, tool: str, *, run_all_when_working: bool
+) -> tuple[int, int]:
+    """Wins and tools used in the winning rollouts of `tool` at the branch point.
 
     Each rollout starts from a copy of the branch point (policy memory included)
-    with its own seeded random state, so the answer is repeatable but not one lucky
-    draw. It stops as soon as the result is settled.
+    with the turn's own seeded random state. It stops once the tool can no longer
+    reach BRANCH_WINS_NEEDED wins, and, unless `run_all_when_working`, as soon as
+    it has them; a tool that keeps going has its full count of wins.
     """
-    wins = losses = 0
+    wins = losses = tools = 0
     for rollout in range(BRANCH_ROLLOUTS):
         trial = copy.deepcopy(branch)
-        trial.rng = random.Random(f"{branch.settings.seed}-{turn}-{tool}-{rollout}")
+        trial.rng = rollout_rng(branch.settings.seed, turn, rollout)
         trial.step(override=tool)
         while not trial.ended:
             trial.step()
         if trial.outcome == SUCCESS:
             wins += 1
+            tools += len(trial.applied)
         else:
             losses += 1
-        if wins >= BRANCH_WINS_NEEDED:
-            return True
+        if wins >= BRANCH_WINS_NEEDED and not run_all_when_working:
+            break
         if losses > BRANCH_ROLLOUTS - BRANCH_WINS_NEEDED:
-            return False
-    return False
+            break
+    return wins, tools
 
 
 def run_surgery(

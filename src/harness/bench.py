@@ -164,6 +164,7 @@ def run_cell(
                     "last_rules": list(last_rules),
                     "mistake_turns_back": result.mistake_turns_back,
                     "alternative": result.alternative,
+                    "alternatives": list(result.alternatives),
                 }
             )
     return {
