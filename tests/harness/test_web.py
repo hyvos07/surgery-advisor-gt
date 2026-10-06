@@ -173,6 +173,14 @@ def test_page_script_never_writes_innerhtml() -> None:
     assert script and "innerHTML" not in script.group(1)
 
 
+def test_page_starts_a_surgery_from_a_report_link() -> None:
+    html = (Path(web_app.STATIC) / "index.html").read_text(encoding="utf-8")
+    # Report links carry these; `policy` and `modifier` are the ones added for them.
+    keys = r'"malady", "condition", "skill", "modifier", "seed", "policy"'
+    assert re.search(rf"const linked = \[{keys}\]", html)
+    assert "linked.some((k) => q.has(k))" in html and "requestSubmit()" in html
+
+
 def test_web_command_binds_to_localhost_only(monkeypatch: pytest.MonkeyPatch) -> None:
     import uvicorn
 

@@ -1,4 +1,4 @@
-"""The `surg` command: next, play, bench, tools and web."""
+"""The `surg` command: next, play, bench, tools, report and web."""
 
 import argparse
 import json
@@ -114,6 +114,40 @@ def _tools(args: argparse.Namespace) -> int:
     )
     json_path, md_path = bench.write_tools_report(paired, base)
     print(bench.render_tools_markdown(paired))
+    print(f"Wrote {json_path} and {md_path}")
+    return 0
+
+
+def _report(args: argparse.Namespace) -> int:
+    from harness import report
+
+    if args.examples < 0:
+        print("surg report: --examples must be 0 or more", file=sys.stderr)
+        return 1
+    loaded = []
+    for path in (args.a, args.b):
+        try:
+            loaded.append(json.loads(Path(path).read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError) as error:
+            print(f"surg report: cannot read {path}: {error}", file=sys.stderr)
+            return 1
+        except json.JSONDecodeError as error:
+            print(f"surg report: {path} is not valid JSON: {error}", file=sys.stderr)
+            return 1
+    try:
+        built = report.build_report(loaded[0], loaded[1], args.examples)
+    except (ValueError, KeyError, TypeError, AttributeError) as error:
+        message = (
+            error
+            if isinstance(error, ValueError)
+            else f"{args.a} or {args.b} is not a benchmark report ({error!r})"
+        )
+        print(f"surg report: {message}", file=sys.stderr)
+        return 1
+
+    base = Path(args.out) if args.out else report.default_report_base(built)
+    json_path, md_path = report.write_comparison_report(built, base)
+    print(report.render_report_markdown(built))
     print(f"Wrote {json_path} and {md_path}")
     return 0
 
@@ -251,6 +285,19 @@ def build_parser() -> argparse.ArgumentParser:
     tools.add_argument("b", metavar="B.json", help="benchmark report, same runs/grid")
     tools.add_argument("--out", metavar="BASE", help="write BASE.json and BASE.md")
 
+    report = sub.add_parser(
+        "report", help="Side-by-side success rates and the death analysis of A"
+    )
+    report.add_argument("a", metavar="A.json", help="policy studied (advisor)")
+    report.add_argument("b", metavar="B.json", help="reference (baseline), same grid")
+    report.add_argument("--out", metavar="BASE", help="write BASE.json and BASE.md")
+    report.add_argument(
+        "--examples",
+        type=int,
+        default=3,
+        help="avoidable deaths with a viewer link per malady (default: %(default)s)",
+    )
+
     play = sub.add_parser("play", help="Run one SurgE surgery in the terminal")
     play.add_argument("--malady", help="SurgE's spelling, e.g. 'Heart Attack'")
     play.add_argument("--condition", help="none, tough_skin, filthy, ...")
@@ -279,6 +326,7 @@ def main(argv: list[str] | None = None) -> int:
         "play": _play,
         "bench": _bench,
         "tools": _tools,
+        "report": _report,
         "web": _web,
     }
     return handlers[ns.command](ns)

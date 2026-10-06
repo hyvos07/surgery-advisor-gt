@@ -269,12 +269,17 @@ def run_grid(
 # --- comparing and writing reports ----------------------------------------
 
 
-def _check_comparable(current: Report, saved: Report) -> None:
+def _check_comparable(
+    current: Report,
+    saved: Report,
+    keys: tuple[str, ...] = ("runs", "max_turns", "lookback", "grid"),
+) -> None:
     """Refuse reports made with other run counts, grids, turn caps or lookbacks.
 
     Reports saved before `--lookback` existed have no such key; they used 1.
+    `keys` narrows what must match (`surg report` leaves the lookback out).
     """
-    for key in ("runs", "max_turns", "lookback", "grid"):
+    for key in keys:
         now = current["meta"].get(key, 1 if key == "lookback" else None)
         then = saved["meta"].get(key, 1 if key == "lookback" else None)
         if now != then:
@@ -503,9 +508,10 @@ def pair_tools(a: Report, b: Report) -> Report:
 
     The reports must come from the same `--runs`, grid and turn cap, and from a
     version of `surg bench` that records `seed_tools`. Fewer tools is better, so
-    a positive difference means `a` used more.
+    a positive difference means `a` used more. The death lookback may differ: it
+    changes how deaths are classified, not who wins or which tools they use.
     """
-    _check_comparable(a, b)
+    _check_comparable(a, b, ("runs", "max_turns", "grid"))
     for report in (a, b):
         if "tool_order" not in report["meta"] or any(
             "seed_tools" not in c for c in report["cells"]

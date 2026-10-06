@@ -302,7 +302,7 @@ async function begin(params) {
   try { current = await api("/surgeries", "POST", params); }
   catch (error) { showError(error.message); return; }
   const s = current.settings;
-  const q = new URLSearchParams({ malady: s.malady, condition: s.condition, skill: s.skill, seed: s.seed });
+  const q = new URLSearchParams({ malady: s.malady, condition: s.condition, skill: s.skill, seed: s.seed, policy: current.policy });
   if (s.modifier) q.set("modifier", s.modifier);
   history.replaceState(null, "", "?" + q.toString());
   render();
@@ -336,10 +336,12 @@ async function init() {
   fill("modifier", options.modifiers);
   fill("policy", options.policies);
   const q = new URLSearchParams(location.search);
-  ["malady", "condition", "skill", "modifier", "seed"].forEach((k) => { if (q.has(k)) $(k).value = q.get(k); });
+  const linked = ["malady", "condition", "skill", "modifier", "seed", "policy"];
+  linked.forEach((k) => { if (q.has(k)) $(k).value = q.get(k); });
+  if (!$("policy").value) $("policy").value = options.policies[0];  // an unknown policy in the link
   render();
   // A link from a benchmark report starts exactly that surgery.
-  if (["malady", "condition", "skill", "modifier", "seed"].some((k) => q.has(k))) $("form").requestSubmit();
+  if (linked.some((k) => q.has(k))) $("form").requestSubmit();
 }
 init().catch((error) => showError(error.message));
 </script>

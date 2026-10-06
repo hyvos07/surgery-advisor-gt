@@ -130,7 +130,7 @@ The JSON holds the grid, per-cell outcome counts and, for every death, its seed,
 - Tools used, since fewer is better once a surgery succeeds: the average per success and the fewest any success needed, in every row; a **Tools used** table of how many of each tool a success takes and how many every surgery spent in total (the gap is waste, such as Sponge loops); with `--compare`, the change in the average. The per-cell JSON keeps the counts per tool (`tool_counts_success`, `tool_counts_all`) and the fewest (`min_tools_on_success`). Each turn log line (`surg play --log`, the web turn log) records the tool applied, and the web end card lists the tools a surgery used.
 - Caution: the averages of two policies are not like for like when one succeeds on harder surgeries, because those need more tools. Judge efficiency on surgeries both policies win (see [Paired tool comparison](#paired-tool-comparison)).
 - For every death, the rules that fired in the last 3 turns, then rules ranked by how often they appear before deaths
-- A viewer link for each death: `http://127.0.0.1:8000/?malady=…&condition=…&skill=…&seed=…`
+- A viewer link for each death, in the `surg report` output: `http://127.0.0.1:8000/?malady=…&condition=…&skill=…&seed=…&policy=…`, plus `&modifier=…` when set (see [Reports](#reports))
 - With `--compare`, the change in each number against the saved report
 
 Each cell also holds `seed_tools`: one entry per seed in seed order, the per-tool counts of that surgery as a list in `meta.tool_order` order when it succeeded, `null` otherwise. The paired comparison below needs it, so reports saved before it existed still work with `--compare` but not with `surg tools`; re-run `surg bench` to get it.
@@ -145,11 +145,37 @@ uv run surg bench --policy baseline --runs 200 --out reports/baseline
 uv run surg tools reports/advisor.json reports/baseline.json   # writes reports/tools-advisor-vs-baseline.json and .md
 ```
 
-Both reports must come from the same `--runs`, grid and turn cap, or `surg tools` refuses with the same message as `--compare`. `--out BASE` writes `BASE.json` and `BASE.md` elsewhere. The first report is *A* and the second *B*. Fewer tools is better, so a positive Difference (A minus B per success) means A uses more.
+Both reports must come from the same `--runs`, grid and turn cap, or `surg tools` refuses with the same message as `--compare`. The `--lookback` may differ. `--out BASE` writes `BASE.json` and `BASE.md` elsewhere. The first report is *A* and the second *B*. Fewer tools is better, so a positive Difference (A minus B per success) means A uses more.
 
 The Markdown has, overall and by skill level, special condition and malady: pairs, the share of surgeries both won, each policy's wins, tools per success on the pairs, the difference, and the fewest tools any success needed. **Where the difference comes from** lists each tool's per-success count for A and B over all pairs, largest gap first, and **Biggest differences by malady** gives each malady's difference with the three tools that explain it most.
 
 "Fewest" is the lowest total tool count over every success of either policy in the group, not only the pairs. It is the reference to approach when tuning. The per-cell version is in the JSON `cells` list (`fewest`, `a_fewest`, `b_fewest` next to `pairs` and each policy's tools per success).
+
+### Reports
+
+`surg report A.json B.json` puts two benchmark reports side by side and analyses the deaths of A. A is the policy being studied (the advisor), B the reference (the baseline).
+
+```bash
+# Owner's setup (skill 100, Exquisite Bone Saw) and the full grid
+uv run surg report reports/main-advisor-lb3.json reports/main-baseline.json --out reports/m3-main
+uv run surg report reports/advisor-lb3.json reports/baseline.json --out reports/m3-full
+# Modifier run: 27 maladies x 6 conditions x 4 modifiers x skill 0 and 100 x 50 runs
+uv run surg bench --runs 50 --skills 0,100 --modifiers stethoscope,tea,exquisite_bone_saw,nano_nurse_bot --lookback 3 --out reports/mod-advisor
+uv run surg bench --runs 50 --skills 0,100 --modifiers stethoscope,tea,exquisite_bone_saw,nano_nurse_bot --policy baseline --out reports/mod-baseline
+uv run surg report reports/mod-advisor.json reports/mod-baseline.json --out reports/m3-mod
+```
+
+The default output is `reports/report-<A>-vs-<B>.json` and `.md`; `--out BASE` writes `BASE.json` and `BASE.md`, and `--examples N` (default 3) sets how many avoidable deaths per malady get a line in the examples section. The reports must have the same `--runs`, grid and turn cap. They may have different `--lookback`: success does not depend on it. Avoidable counts do, so run A with `--lookback 3` and expect B's avoidable column (usually lookback 1) to be an undercount; judge the policies by success and by A's own death analysis.
+
+The Markdown has:
+
+- **Side by side** for overall, skill level, special condition and malady (and modifier when the grid has more than one): both success rates, the difference in points, A's avoidable, unlucky and timeout deaths, B's avoidable deaths, and tools per success on the surgeries both won (as in `surg tools`; blank when a report has no `seed_tools`).
+- **Deaths: rules in the last 3 turns**: every death of A, ranked by the number of deaths with the rule among the rules that fired in their last 3 turns, split into avoidable and unlucky, with the share of all deaths and the total appearances.
+- **Rule at the mistake turn**: for each avoidable death with a mistake turn *k* turns back, the rule that fired then (`last_rules[-1-k]`; a mistake further back than the 3 kept rules is counted separately), the tool that would have won most often, and the mean *k*.
+- **Mistake depth** (deaths by *k*, with illegal moves apart), **Better tools** (the `alternative` over avoidable deaths) and **By malady** (deaths, avoidable, top mistake rule and top better tool).
+- **Examples with viewer links**: per malady, up to N avoidable deaths with their settings, seed, *k*, better tool, last rules and a link to the viewer. Start `uv run surg web` first.
+
+The JSON holds the same tables plus every death of A (`analysis.deaths`) and every avoidable one (`analysis.avoidable_deaths`), each with its viewer link and `mistake_rule`.
 
 ## Web viewer
 
@@ -204,7 +230,7 @@ Surgeries live in server memory only; restarting the server clears them, and onl
 - **Turn log:** turn number, tool, whether it skill-failed, the rule, and what changed (for example, pulse `steady` to `weak`).
 - **End card:** SurgE's result message, turns taken, tools used and skill fails.
 - **Train-E toggle:** shows SurgE's own hint next to the advisor's pick.
-- **URL parameters:** `malady`, `condition`, `skill`, `modifier` and `seed` start a surgery directly, so benchmark links open the exact run.
+- **URL parameters:** `malady`, `condition`, `skill`, `modifier`, `seed` and `policy` start a surgery directly, so benchmark links open the exact run. An unknown `policy` falls back to the first one in the list.
 
 ### Flow
 
