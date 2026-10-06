@@ -257,6 +257,23 @@ def test_reports_must_share_the_seed_offset() -> None:
     assert build_report(both, shifted)["meta"]["seed_offset"] == 1000
 
 
+def test_the_death_classifier_must_match_for_the_report_but_not_the_columns() -> None:
+    a, b = hand_built()
+    assert "classifier" not in a["meta"]  # a report from before D23 counts as 1
+    new = copy.deepcopy(b)
+    new["meta"]["classifier"] = 2
+    # Success and tools don't depend on the classifier.
+    assert side_by_side(a, new)["overall"]["all"]["pairs"] == 9
+    assert side_by_side(new, a)["overall"]["all"]["a_success_rate"] == 0.45
+    # The death section does.
+    with pytest.raises(ValueError, match="classifier differs"):
+        build_report(a, new)
+    with pytest.raises(ValueError, match="classifier differs"):
+        build_report(new, a)
+    assert build_report(new, copy.deepcopy(new))["analysis"]["policy"]
+    assert build_report(a, copy.deepcopy(b))["analysis"]["policy"]
+
+
 def test_a_death_link_carries_the_real_seed_not_the_position() -> None:
     grid = Grid(("Heart Attack",), ("filthy",), (0,), (None,))
     run = run_grid("baseline", 6, grid, workers=1, seed_offset=5)

@@ -50,14 +50,15 @@ def test_fail_rate_rejects_bad_input() -> None:
 
 
 def test_margin_bands_at_their_edges() -> None:
-    low = Margins(fever_crisis_f=108.0, pulse_turns_ahead=1)
-    mid = Margins(fever_crisis_f=107.0, pulse_turns_ahead=1)
-    high = Margins(fever_crisis_f=106.0, pulse_turns_ahead=2)
+    # Tuned in M4 (D24): one crisis temperature, a 2-turn pulse forecast from 15%.
+    low = Margins(fever_crisis_f=103.0, pulse_turns_ahead=1)
+    mid = Margins(fever_crisis_f=103.0, pulse_turns_ahead=1)
+    high = Margins(fever_crisis_f=103.0, pulse_turns_ahead=2)
     assert margins_for(0) == low
     assert margins_for(9) == low
     assert margins_for(10) == mid
-    assert margins_for(19) == mid
-    assert margins_for(20) == high
+    assert margins_for(14) == mid
+    assert margins_for(15) == high
     assert margins_for(35) == high
 
 
@@ -88,11 +89,16 @@ def test_minimal_is_the_default_antiseptic_mode_and_draft_stays_selectable() -> 
 
 
 def test_for_patient_picks_band_from_fail_rate_not_skill() -> None:
-    # Skill 100 alone is 5% (low band); skill 0 with a Stethoscope is 15% (mid).
-    assert Config.for_patient(100, None).margins.fever_crisis_f == 108.0
-    assert Config.for_patient(0, "stethoscope").margins.fever_crisis_f == 107.0
-    assert Config.for_patient(0, None).margins.fever_crisis_f == 106.0
+    # Skill 100 alone is 5% (low band); skill 75 is 11% (mid); skill 50 is 18% (high);
+    # skill 0 with a Stethoscope is 15% (high, the edge).
+    assert Config.for_patient(100, None).margins.pulse_turns_ahead == 1
+    assert Config.for_patient(75, None).margins.pulse_turns_ahead == 1
+    assert Config.for_patient(50, None).margins.pulse_turns_ahead == 2
+    assert Config.for_patient(0, "stethoscope").fail_rate == 15
+    assert Config.for_patient(0, "stethoscope").margins.pulse_turns_ahead == 2
+    assert Config.for_patient(0, None).margins.pulse_turns_ahead == 2
     assert Config.for_patient(100, "exquisite_bone_saw").fail_rate == 2
+    assert Config.for_patient(100, None).margins.fever_crisis_f == 103.0
 
 
 def test_for_patient_options() -> None:

@@ -71,8 +71,10 @@ TOUGH_SKIN_EXTRA_INCISIONS = 1
 
 # --- Margin bands by fail rate ----------------------------------------------
 
+# Tuned on seeds 0-199 in M4 (D24): the high band starts at 15, not 20, so skill 50
+# (fail rate 18) gets the 2-turn pulse forecast.
 MARGIN_MID_FAIL_RATE = 10  # fail rate at which the middle band starts
-MARGIN_HIGH_FAIL_RATE = 20  # fail rate at which the high band starts
+MARGIN_HIGH_FAIL_RATE = 15  # fail rate at which the high band starts
 
 # --- Antiseptic modes --------------------------------------------------------
 
@@ -118,9 +120,13 @@ class Margins:
     pulse_turns_ahead: int  # forecast turns used for the pulse
 
 
-_MARGINS_LOW = Margins(fever_crisis_f=108.0, pulse_turns_ahead=1)
-_MARGINS_MID = Margins(fever_crisis_f=107.0, pulse_turns_ahead=1)
-_MARGINS_HIGH = Margins(fever_crisis_f=106.0, pulse_turns_ahead=2)
+# Tuned in M4 (D24), seeds 0-199: any crisis temperature from 102 to 104 F gave the
+# same best success (100.4 to 101 and 105 to 110 gave less), so all bands use 103.
+# The bands now differ only in the pulse forecast: 2 turns for a high fail rate
+# (3 turns, or 1 turn at a high fail rate, both gave less).
+_MARGINS_LOW = Margins(fever_crisis_f=103.0, pulse_turns_ahead=1)
+_MARGINS_MID = Margins(fever_crisis_f=103.0, pulse_turns_ahead=1)
+_MARGINS_HIGH = Margins(fever_crisis_f=103.0, pulse_turns_ahead=2)
 
 
 def fail_rate(skill: int, modifier: str | None) -> int:
@@ -145,7 +151,7 @@ def fail_rate(skill: int, modifier: str | None) -> int:
 
 
 def margins_for(rate: int) -> Margins:
-    """Margins for a fail rate: under 10, 10-19, or 20 and above."""
+    """Margins for a fail rate: under 10, 10-14, or 15 and above."""
     if rate >= MARGIN_HIGH_FAIL_RATE:
         return _MARGINS_HIGH
     if rate >= MARGIN_MID_FAIL_RATE:

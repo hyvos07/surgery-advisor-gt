@@ -26,6 +26,20 @@ from harness.surge import CONDITION_NAMES, MALADY_NAMES, MODIFIER_NAMES, TOOL_ID
 OUTCOMES = (SUCCESS, AVOIDABLE_DEATH, UNLUCKY_DEATH, TIMEOUT)
 SKILLS = (0, 25, 50, 75, 100)
 GROUPS = ("skill", "condition", "malady")
+# Which death classifier made a report's avoidable and unlucky counts. 1 = before
+# D23 (the fatal turn only asked whether another tool survived it), 2 = D23 (the
+# shared-roll test at the fatal turn). Bump it when the classification changes.
+CLASSIFIER_VERSION = 2
+# What `--compare` needs to match. The classifier is in it because the death counts
+# are compared; `pair_tools` and the report's success columns leave it out.
+COMPARE_KEYS = (
+    "runs",
+    "max_turns",
+    "lookback",
+    "seed_offset",
+    "grid",
+    "classifier",
+)
 
 Report = dict[str, Any]
 Cell = tuple[str, str, int, str | None]
@@ -271,6 +285,7 @@ def run_grid(
             "seeds": f"{seed_offset} to {seed_offset + runs - 1}",
             "max_turns": MAX_TURNS,
             "lookback": lookback,
+            "classifier": CLASSIFIER_VERSION,
             "grid": grid.as_dict(),
             "tool_order": list(TOOL_IDS),
             "created": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -288,15 +303,17 @@ def run_grid(
 def _check_comparable(
     current: Report,
     saved: Report,
-    keys: tuple[str, ...] = ("runs", "max_turns", "lookback", "seed_offset", "grid"),
+    keys: tuple[str, ...] = COMPARE_KEYS,
 ) -> None:
-    """Refuse reports made with other run counts, grids, turn caps, lookbacks or seeds.
+    """Refuse reports made with other run counts, grids, turn caps, lookbacks, seeds
+    or death classifiers.
 
     Reports saved before `--lookback` existed have no such key; they used 1.
     Reports saved before `--seed-offset` existed have none either; they used 0.
+    Reports saved before D23 have no `classifier` key; they used classifier 1.
     `keys` narrows what must match (`surg report` leaves the lookback out).
     """
-    missing = {"lookback": 1, "seed_offset": 0}
+    missing = {"lookback": 1, "seed_offset": 0, "classifier": 1}
     for key in keys:
         now = current["meta"].get(key, missing.get(key))
         then = saved["meta"].get(key, missing.get(key))
@@ -309,8 +326,8 @@ def _check_comparable(
 def compare_reports(current: Report, saved: Report) -> Report:
     """Change in every summary number against a saved report (hard rule 6).
 
-    Refuses reports made with other run counts, grids, turn caps, lookbacks or
-    seed offsets, because their seeds or death classes don't line up.
+    Refuses reports made with other run counts, grids, turn caps, lookbacks, seed
+    offsets or death classifiers, because their seeds or death classes don't line up.
     """
     _check_comparable(current, saved)
 

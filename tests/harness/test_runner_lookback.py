@@ -71,14 +71,16 @@ ADVISOR_LIVER_50 = Settings("Fatty Liver", "none", 50, None, 71)
 # fever; almost every other tool "survives" that turn, but the patient dies the next
 # turn whatever is done, and the shared-roll test says so. Under the pre-D23 rule all
 # were avoidable (Sponge, Anesthetic, Stitches and others survived the turn).
+# (Seeds re-scanned after the D24 margins: Brainworms seed 1 no longer ends that way.)
 BRAINWORMS_1 = Settings("Brainworms", "none", 50, None, 1)
 FATTY_LIVER_4 = Settings("Fatty Liver", "none", 50, None, 4)
+FATTY_LIVER_7 = Settings("Fatty Liver", "none", 50, None, 7)
 # Avoidable at the fatal turn by the shared-roll test: Stitches wins 2 of 3 rollouts
-# and the policy's own tool does not. Seed 71 was avoidable before D23 as well; in
-# seed 10 (a skill-failed Transfusion) no tool survived the fatal turn on the real
-# draw, so it was unlucky before D23.
+# and the policy's own tool does not. In both Brainworms seeds (71 and 5, after the
+# D24 margins; they were 71 and 10 before) a skill-failed Transfusion ends it and no
+# tool survived the fatal turn on the real draw, so they were unlucky before D23.
 BRAINWORMS_71 = Settings("Brainworms", "none", 50, None, 71)
-BRAINWORMS_10 = Settings("Brainworms", "none", 50, None, 10)
+BRAINWORMS_5 = Settings("Brainworms", "none", 50, None, 5)
 FATTY_LIVER_25_18 = Settings("Fatty Liver", "none", 25, None, 18)
 
 
@@ -195,7 +197,7 @@ def test_stopping_early_gives_the_same_verdict_as_running_every_rollout(
 
 
 def test_lookback_3_keeps_what_lookback_1_already_found() -> None:
-    for settings in (BRAINWORMS_71, BRAINWORMS_10, FATTY_LIVER_25_18):
+    for settings in (BRAINWORMS_71, BRAINWORMS_5, FATTY_LIVER_25_18):
         one, three = play_settings(settings, 1), play_settings(settings, 3)
         assert one.outcome == AVOIDABLE_DEATH and one.mistake_turns_back == 0
         assert one == three
@@ -233,7 +235,7 @@ def last_turn_of(settings: Settings) -> dict[str, Any]:
     return records[-1]
 
 
-@pytest.mark.parametrize("settings", [BRAINWORMS_1, FATTY_LIVER_4])
+@pytest.mark.parametrize("settings", [FATTY_LIVER_7, FATTY_LIVER_4])
 def test_a_skill_failed_antibiotics_on_the_fatal_turn_is_luck(
     settings: Settings,
 ) -> None:
@@ -250,7 +252,7 @@ def test_a_skill_failed_antibiotics_on_the_fatal_turn_is_luck(
 def test_the_fatal_turn_is_avoidable_if_another_tool_wins_and_the_original_not() -> (
     None
 ):
-    for settings in (BRAINWORMS_71, BRAINWORMS_10):
+    for settings in (BRAINWORMS_71, BRAINWORMS_5):
         result = play_settings(settings, 1)
         assert fields(result) == (AVOIDABLE_DEATH, 0, "stitches")
         assert result.alternatives == ("stitches",)
@@ -266,9 +268,11 @@ def test_the_fatal_turn_is_avoidable_if_another_tool_wins_and_the_original_not()
             t for t, w in wins.items() if w >= BRANCH_WINS_NEEDED and t != original
         }
         assert working == set(result.alternatives)
-    # Seed 10 is a death that was unlucky before D23: no tool survived its fatal turn.
-    assert survivors_of_the_fatal_turn(BRAINWORMS_10) == []
-    assert "stitches" in survivors_of_the_fatal_turn(BRAINWORMS_71)
+    # The Brainworms deaths were unlucky before D23: no tool survived the fatal turn
+    # (a skill-failed Transfusion). The Fatty Liver death was avoidable then as well.
+    assert survivors_of_the_fatal_turn(BRAINWORMS_5) == []
+    assert survivors_of_the_fatal_turn(BRAINWORMS_71) == []
+    assert "stitches" in survivors_of_the_fatal_turn(FATTY_LIVER_25_18)
 
 
 def test_lookback_3_leaves_a_hopeless_death_unlucky() -> None:

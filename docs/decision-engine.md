@@ -165,12 +165,12 @@ The forecast is deliberately pessimistic. The benchmark decides whether it is to
 
 Margins depend on the fail rate, not the skill level, because modifiers change the rate. They live in `src/advisor/config.py`.
 
-| Margin | Fail rate under 10% | 10–19% | 20% and above |
+| Margin | Fail rate under 10% | 10–14% | 15% and above |
 | --- | --- | --- | --- |
-| Fever crisis temperature (°F) | 108 | 107 | 106 |
+| Fever crisis temperature (°F) | 103 | 103 | 103 |
 | Pulse forecast turns ahead | 1 | 1 | 2 |
 
-These are starting values for the M3 benchmark to tune.
+Tuned on seeds 0-199 in M4 ([D24](decisions.md#d24-safety-margins-tuned-per-skill-band)). The starting values were 108 / 107 / 106 °F, with the high band from 20%. The fever crisis temperature is the same in every band because any value from 102 to 104 gave the same best result; the bands now differ only in the pulse forecast. The tuning also tried 3 pulse turns (worse), 1 turn in the high band (worse), the very-quickly bleed cap, and 1 to 4 turns for the crisis forecast (no effect at 103).
 
 ## Threshold profiles
 

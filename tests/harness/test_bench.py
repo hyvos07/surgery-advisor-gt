@@ -8,11 +8,13 @@ import pytest
 
 import cli
 from harness.bench import (
+    CLASSIFIER_VERSION,
     OUTCOMES,
     Grid,
     compare_reports,
     full_grid,
     grid_from_options,
+    pair_tools,
     render_markdown,
     run_cell,
     run_grid,
@@ -309,6 +311,56 @@ def test_a_report_without_a_seed_offset_counts_as_offset_0() -> None:
         compare_reports(five, old)
     with pytest.raises(ValueError, match="seed_offset differs"):
         compare_reports(old, five)
+
+
+def test_reports_record_the_death_classifier_version() -> None:
+    assert CLASSIFIER_VERSION == 2
+    meta = run_grid("baseline", 1, HEART, workers=1)["meta"]
+    assert meta["classifier"] == CLASSIFIER_VERSION
+
+
+def test_compare_refuses_a_different_death_classifier_either_way() -> None:
+    now = run_grid("baseline", 2, HEART, workers=1)
+    old = copy.deepcopy(now)
+    old["meta"]["classifier"] = 1
+    with pytest.raises(ValueError, match="classifier differs"):
+        compare_reports(now, old)
+    with pytest.raises(ValueError, match="classifier differs"):
+        compare_reports(old, now)
+    assert compare_reports(old, old)["overall"]["success_rate"] == 0
+
+
+def test_a_report_without_a_classifier_counts_as_classifier_1() -> None:
+    now = run_grid("baseline", 2, HEART, workers=1)
+    old = copy.deepcopy(now)
+    del old["meta"]["classifier"]
+    with pytest.raises(ValueError, match=r"classifier differs \(1 saved vs 2 now\)"):
+        compare_reports(now, old)
+    with pytest.raises(ValueError, match=r"classifier differs \(2 saved vs 1 now\)"):
+        compare_reports(old, now)
+    assert compare_reports(old, old)["overall"]["success_rate"] == 0
+
+
+def test_pairing_tools_ignores_the_death_classifier() -> None:
+    now = run_grid("baseline", 2, HEART, workers=1)
+    old = copy.deepcopy(now)
+    del old["meta"]["classifier"]
+    assert pair_tools(now, old)["summary"]["overall"]["pairs"] > 0
+
+
+def test_cli_bench_refuses_a_report_from_another_classifier(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    base = tmp_path / "old"
+    options = ["bench", "--policy", "baseline", "--skills", "100", "--runs", "1"]
+    options += ["--workers", "4"]
+    assert cli.main([*options, "--out", str(base)]) == 0
+    saved = json.loads((tmp_path / "old.json").read_text(encoding="utf-8"))
+    del saved["meta"]["classifier"]
+    (tmp_path / "old.json").write_text(json.dumps(saved), encoding="utf-8")
+    capsys.readouterr()
+    assert cli.main([*options, "--compare", str(base) + ".json"]) == 1
+    assert "cannot compare: classifier differs" in capsys.readouterr().err
 
 
 def test_cli_bench_seed_offset(

@@ -129,7 +129,7 @@ Run *i* of a cell uses a seed derived from the cell and *i*, so the same grid al
 
 ### Report
 
-Written to `reports/<timestamp>.json` and `reports/<timestamp>.md`, or to `<BASE>.json` and `<BASE>.md` with `--out BASE`. `--compare` refuses a saved report made with a different `--runs`, grid (including `--skills` and `--modifiers`), turn cap, `--seed-offset` or `--lookback` (a saved report without `seed_offset` counts as 0). Every surgery gets a fresh policy, so the advisor's memory never carries over from one seed to the next.
+Written to `reports/<timestamp>.json` and `reports/<timestamp>.md`, or to `<BASE>.json` and `<BASE>.md` with `--out BASE`. `--compare` refuses a saved report made with a different `--runs`, grid (including `--skills` and `--modifiers`), turn cap, `--seed-offset` or `--lookback` (a saved report without `seed_offset` counts as 0) or death classifier (`meta.classifier`: 1 is before D23, 2 is the shared-roll test; a report without the key counts as 1). `surg report` refuses a classifier mismatch too, because it shows both policies' death counts; `surg tools` and the success columns do not care. Every surgery gets a fresh policy, so the advisor's memory never carries over from one seed to the next.
 
 The JSON holds the grid, per-cell outcome counts and, for every death, its seed, outcome, the last 3 rules that fired, and its `mistake_turns_back`, `alternative` and `alternatives` (see Lookback above). Contents:
 

@@ -325,7 +325,12 @@ def death_analysis(a: Report, examples: int = 3) -> Report:
 
 
 def build_report(a: Report, b: Report, examples: int = 3) -> Report:
-    """Everything `surg report` writes: side by side, then A's death analysis."""
+    """Everything `surg report` writes: side by side, then A's death analysis.
+
+    Also refuses reports made with different death classifiers: the report puts
+    A's death counts beside B's. `side_by_side` alone (success and tools) doesn't.
+    """
+    _check_comparable(a, b, ("classifier",))
     sides = side_by_side(a, b)
     meta = a["meta"]
     return {

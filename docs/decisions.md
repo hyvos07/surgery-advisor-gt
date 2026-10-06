@@ -27,6 +27,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D21 | 2026-10-06 | Optional manual-input mode in the web viewer | Accepted, applied in M4 |
 | D22 | 2026-10-06 | Transfuse only when the pulse could bleed out | Accepted, applied in M4 |
 | D23 | 2026-10-06 | One-turn avoidable deaths use the shared-roll test | Accepted, applied in M4 |
+| D24 | 2026-10-06 | Safety margins tuned per skill band | Applied in M4 (margins only; two targets still open) |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -259,3 +260,23 @@ Choices someone might later question, with the reason and what would reopen them
   | Unlucky deaths | 551 | 595 | not saved | 734 | 40,201 | 43,006 |
 
   Both D17 limits are met: at most 0.1% in the owner's setup and 1% over the full grid. Zero illegal moves. The Train-E baseline under the same definition: 100 avoidable (0.31%) in the owner's setup, 692 (0.43%) over the full grid, against 5,179 and 21,799 before. The full-grid run took 118 s (61 s before) because the fatal turn now rolls out every tool.
+
+## D24. Safety margins tuned per skill band
+
+- **Context:** the margins in `config.py` were M3 starting values (fever crisis temperature 108 / 107 / 106 F, pulse forecast 1 / 1 / 2 turns, the high band from a 20% fail rate). Two D17 targets were still open after D22: success at skill 100 with no modifier (94.5%, target 95%) and in the owner's setup on fresh seeds (97.7%, target 98%). Deaths at skill 100 with no modifier (1,787 of 32,400): 49% infection (E6 and E2 were the last rule), 33% a heart that would not restart (E1, or E2 with the site unseeable), 17% bled out.
+- **Decision (config only, as D18 and D19 allow):** the fever crisis temperature is 103 F in every band, and the high band starts at a 15% fail rate instead of 20% (so skill 50, 18%, gets the 2-turn pulse forecast). Pulse turns ahead stay 1 / 1 / 2 and `FEVER_CRISIS_TURNS` stays 2. No rule changed.
+- **Why:** the search ran on seeds 0-199 only, with success and tools per success (no death classification), in a worker pool that patched `config.py` values. At skill 100 a lower crisis temperature raised success steadily (108: 94.48%, 106: 94.57%, 105: 94.78%, 104: 94.89%) and 102 to 104 gave the same best figure for every skill, so 103 sits in the middle of the plateau; below that (100.4 to 101) success fell again. Pulse turns ahead of 2 or 3 in the low band lost 0.6 and 1.9 points; 1 turn in the high band lost 0.2 points at skill 0; 3 turns there lost 1 point. The very-quickly bleed cap (5, 8, 10 against 6) and 1 to 4 turns for the crisis forecast gave nothing or less. Skill 50 gained 0.7 points from the 2-turn pulse forecast, which held in both halves of the seeds (0-99 and 100-199), as did the fever change.
+- **Result (200 runs per cell, advisor, before and after; paired tools are the advisor and the Train-E baseline on surgeries both win):**
+
+  | | Owner's setup, seeds 0-199, before | after | Fresh seeds 1000-1199, before | after | Full grid, before | after |
+  | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  | Success | 98.14% | 98.33% | 97.73% | 97.88% | 72.87% | 73.66% |
+  | Avoidable deaths (one turn) | 7 | 7 | 2 | 2 | 815 (0.50%) | 878 (0.54%) |
+  | Timeouts | 1 | 1 | 1 | 1 | 129 | 235 |
+  | Tools per success | 14.71 | 14.67 | 14.62 | 14.58 | 16.13 | 16.19 |
+  | Paired tools per success, advisor vs baseline | 10.1 vs 12.6 | 10.1 vs 12.6 | not rerun | not rerun | 10.1 vs 12.9 | 10.0 vs 12.9 |
+
+  By skill on the full grid, seeds 0-199: skill 0 50.03% to 50.92%, skill 25 60.76% to 61.65%, skill 50 73.27% to 74.50%, skill 75 85.81% to 86.37%, skill 100 94.48% to 94.89%. The quick benchmark (5 runs per cell) went from 74.4% to 75.5%. Brainworms in the owner's setup went from 89.2% to 93.9% (seeds 0-199) and from 88.6% to 92.2% (fresh seeds). The worst malady on paired tools over the full grid is Torn Punching Muscle at +0.5, inside the D17 limit of 1. Zero illegal moves in every report.
+- **Targets after tuning:** met on seeds 0-199: skill 0 (50.9%), owner's setup (98.3%), tools (22% fewer on the full grid), one-turn avoidable deaths (0.022% owner's setup, 0.54% full grid). Not met: skill 100 with no modifier, 94.9% against 95%, and the owner's setup on fresh seeds, 97.9% against 98%. Margins alone do not close the last 0.1 points. A pre-emptive Sponge at `hard_to_see` (a rule change, not made here, tried by patching the rule list in the search) lost 17 to 22 points at skills 0 and 100, in line with D13; limited to a positive fever above 100.4 F and never twice in a row it still lost 3 to 4 points.
+- **Risk:** timeouts over the full grid nearly doubled (129 to 235), almost all at skill 50 (18 to 98) and skill 25 (70 to 88), where the changes bite (skill 50 now uses the 2-turn pulse forecast; every skill uses the lower crisis temperature); the extra Transfusions and doses seem to push long surgeries past 80 turns. The avoidable count at skill 50 rose from 167 to 228 as well. Success still rose at those skills.
+- **Revisit if:** a rule change (D13's Sponge, E1 and E2 order) moves skill 100 past 95%, or the timeouts keep rising.

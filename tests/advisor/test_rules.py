@@ -20,13 +20,13 @@ from advisor.state import Decision, ScreenState, Tool
 
 MakeState = Callable[..., ScreenState]
 
-# Skill 50 has an 18% fail rate: crisis temperature 107 F, one pulse turn ahead.
+# Skill 75 has an 11% fail rate: crisis temperature 103 F, one pulse turn ahead (D24).
 # The surge profile needs a temperature under 101 F.
 # CONFIG and WIKI use the draft Antiseptic mode explicitly: the rule tests below
 # were written against it, and `minimal` became the default only later (D14).
-CONFIG = Config.for_patient(50, None, antiseptic_mode="draft")
-MINIMAL = Config.for_patient(50, None, antiseptic_mode="minimal")
-WIKI = Config.for_patient(50, None, profile="wiki", antiseptic_mode="draft")
+CONFIG = Config.for_patient(75, None, antiseptic_mode="draft")
+MINIMAL = Config.for_patient(75, None, antiseptic_mode="minimal")
+WIKI = Config.for_patient(75, None, profile="wiki", antiseptic_mode="draft")
 
 # The owner's setup (skill 100, Exquisite Bone Saw): 2% fail rate, one pulse turn.
 # LOW_SKILL has a 30% fail rate: two pulse turns ahead.
@@ -307,17 +307,17 @@ def test_e6_fires_on_a_fast_climbing_fever(
 def test_e6_fires_when_the_crisis_temperature_is_two_turns_away(
     know: Knowledge, make_state: MakeState
 ) -> None:
-    # Climbing is up to 2.0 per turn: 103.5 reaches 107.5 in two turns, 102.5 does not.
+    # Slowly rising is up to 0.5 per turn: 102.0 reaches 103.0 in two turns, 101.5 not.
     fires(
         rules.rule_e6_fever_crisis,
         "E6",
         Tool.LAB_KIT,
-        make_state(fever="climbing", temperature=103.5),
+        make_state(fever="slowly_rising", temperature=102.0),
         memory_for(know),
     )
     silent(
         rules.rule_e6_fever_crisis,
-        make_state(fever="climbing", temperature=102.5),
+        make_state(fever="slowly_rising", temperature=101.5),
         memory_for(know),
     )
 
