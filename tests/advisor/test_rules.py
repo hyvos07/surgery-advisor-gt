@@ -28,6 +28,11 @@ CONFIG = Config.for_patient(50, None, antiseptic_mode="draft")
 MINIMAL = Config.for_patient(50, None, antiseptic_mode="minimal")
 WIKI = Config.for_patient(50, None, profile="wiki", antiseptic_mode="draft")
 
+# The owner's setup (skill 100, Exquisite Bone Saw): 2% fail rate, one pulse turn.
+# LOW_SKILL has a 30% fail rate: two pulse turns ahead.
+OWNER = Config.for_patient(100, "exquisite_bone_saw")
+LOW_SKILL = Config.for_patient(0, None)
+
 MAX_REASON = 100
 
 
@@ -141,39 +146,78 @@ def test_e2_fires_on_cant_see_with_heavy_bleeding_and_open_incisions(
     )
 
 
-def test_e3_transfuses_when_the_pulse_may_hit_extremely_weak(
+def test_e3_transfuses_when_the_pulse_could_bleed_out(
     know: Knowledge, make_state: MakeState
 ) -> None:
     memory = memory_for(know)
-    # Weak is 11 or more; very quickly counts as 6, so the worst case is 5.
+    # Extremely weak is 1 or more; a slow bleed (1) leaves a worst case of 0 (D22).
     fires(
         rules.rule_e3_save_pulse,
         "E3",
         Tool.TRANSFUSION,
-        make_state(pulse="weak", bleeding="very_quickly"),
+        make_state(pulse="extremely_weak", bleeding="slowly"),
         memory,
     )
+    # An open incision alone costs 1 pulse per turn, so 1 - 1 = 0 as well.
+    fires(
+        rules.rule_e3_save_pulse,
+        "E3",
+        Tool.TRANSFUSION,
+        make_state(pulse="extremely_weak", incisions=1),
+        memory,
+    )
+    # Nothing is draining the pulse: the floor stays at 1.
+    silent(rules.rule_e3_save_pulse, make_state(pulse="extremely_weak"), memory)
     silent(
         rules.rule_e3_save_pulse,
         make_state(pulse="strong", bleeding="very_quickly"),
         memory,
     )
+
+
+def test_e3_stays_silent_on_a_weak_pulse_that_cannot_bleed_out(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know)
+    # The Brainworms case (D22): weak is 11 or more and very quickly counts as 6, so
+    # the worst case is 5. That is "extremely weak" on screen, but still alive.
+    state = make_state(pulse="weak", bleeding="very_quickly")
+    for config in (OWNER, CONFIG):
+        silent(rules.rule_e3_save_pulse, state, memory, config)
+    silent(
+        rules.rule_e3_save_pulse,
+        make_state(pulse="weak", bleeding="very_quickly", incisions=1),
+        memory,
+        OWNER,
+    )
     silent(rules.rule_e3_save_pulse, make_state(pulse="weak"), memory)
+
+
+def test_e3_looks_two_turns_ahead_at_a_high_fail_rate(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know)
+    state = make_state(pulse="weak", bleeding="very_quickly")
+    # Weak is 11 or more: 11 - 6 = 5 after one turn, 11 - 12 = -1 after two.
+    silent(rules.rule_e3_save_pulse, state, memory, CONFIG)
+    fires(rules.rule_e3_save_pulse, "E3", Tool.TRANSFUSION, state, memory, LOW_SKILL)
+    decision = run(rules.rule_e3_save_pulse, state, memory, LOW_SKILL)
+    assert decision is not None
+    assert "2 turns" in decision.reason
 
 
 def test_e3_fires_one_step_earlier_for_a_hemophiliac(
     know: Knowledge, make_state: MakeState
 ) -> None:
-    state = make_state(pulse="steady", bleeding="very_quickly")
-    # Steady is 21 or more: 21 - 6 = 15 is still weak, 21 - 12 = 9 is not.
+    state = make_state(pulse="weak", bleeding="very_quickly")
+    # Weak is 11 or more: 11 - 6 = 5 is alive, 11 - 12 = -1 is not.
     silent(rules.rule_e3_save_pulse, state, memory_for(know))
-    fires(
-        rules.rule_e3_save_pulse,
-        "E3",
-        Tool.TRANSFUSION,
-        state,
+    for memory in (
         memory_for(know, condition=know.condition(HEMOPHILIAC)),
-    )
+        # Assumed, not shown (Nose Job).
+        memory_for(know, assumed_conditions=frozenset({HEMOPHILIAC})),
+    ):
+        fires(rules.rule_e3_save_pulse, "E3", Tool.TRANSFUSION, state, memory)
 
 
 def test_e4_keeps_an_operated_patient_asleep(

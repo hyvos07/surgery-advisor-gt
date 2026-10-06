@@ -25,6 +25,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D19 | 2026-10-06 | Tune on seeds 0-199, report the final numbers on fresh seeds | Accepted |
 | D20 | 2026-10-06 | License the repository under AGPL-3.0 | Accepted, not yet applied |
 | D21 | 2026-10-06 | Optional manual-input mode in the web viewer | Accepted, applied in M4 |
+| D22 | 2026-10-06 | Transfuse only when the pulse could bleed out | Accepted, applied in M4 |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -222,3 +223,23 @@ Choices someone might later question, with the reason and what would reopen them
 - **Why:** it makes the MVP usable while playing without any connection to the game, so hard rule 8 is untouched.
 - **Status:** applied in M4: a Manual tab in `surg web`, with the tool tray pre-ticked from the game's tray rules (the same as `harness/observe.py`), which the player can override.
 
+## D22. Transfuse only when the pulse could bleed out
+
+- **Context:** Brainworms in the owner's setup (skill 100, Exquisite Bone Saw) died of infection at 111 F on turn 10. E2 forced a Sponge every other turn (`cant_see`), and on the free turns E3 saw a `weak` pulse, forecast `extremely_weak` (the word's floor, 11, minus the `very_quickly` bleed cap, 6, gives 5) and transfused, so E6's Antibiotics never got a turn. In SurgE the patient bleeds out only when the pulse falls below 1 ([game-model.md](game-model.md)); "extremely weak" is just a word.
+- **Decision (owner approved):** E3 fires when the worst-case `pulse_floor` is below `PULSE_BLED_OUT` (1, in `config.py`), instead of when its pulse word would be `extremely_weak`. The reason names the turns ahead from the margin ("Pulse could fall below 1 next turn and bleed out", or "within 2 turns").
+- **Why:** a transfusion that cannot change the outcome costs the turn that Antibiotics, Clamp or Stitches needed. The forecast keeps its pessimism (upper bound of each hidden bleed); only the danger line moves from a word to the real death point.
+- **Rule change (rule IDs unchanged):** E3's guard only. `Forecast.pulse_word_next` is still computed (the forecast tests and schema check cover it) but no rule uses it now.
+- **Result (benchmark, 200 runs per cell, before and after; avoidable is the one-turn lookback; paired tools are the advisor and the Train-E baseline on surgeries both win):**
+
+  | | Owner's setup, seeds 0-199, before | after | Owner's setup, fresh seeds 1000-1199, before | after | Full grid, before | after |
+  | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  | Success | 97.2% | 98.1% | 96.9% | 97.7% | 71.4% | 72.9% |
+  | Avoidable deaths | 61 | 51 | 45 | 45 | 3,827 | 3,620 |
+  | Timeouts | 15 | 1 | 10 | 1 | 700 | 129 |
+  | Tools per success | 15.2 | 14.7 | 15.1 | 14.6 | 16.6 | 16.1 |
+  | Paired tools per success, advisor vs baseline | 10.1 vs 12.6 | 10.1 vs 12.6 | 10.0 vs 12.4 | 9.9 vs 12.4 | 10.1 vs 12.9 | 10.1 vs 12.9 |
+
+  Zero illegal moves in every report. Brainworms in the owner's setup rose from 67.2% to 89.2% on seeds 0-199 and from 69.8% to 88.6% on fresh seeds. Over the full grid the gain was +2.8 points at skill 0 (47.3% to 50.0%), +0.8 at skill 100 (93.7% to 94.5%) and +3.0 at skill 25. The quick benchmark (5 runs per cell) went from 72.2% to 74.4%. The worst malady on paired tools over the full grid is Torn Punching Muscle at +0.5 tools against the baseline, inside the D17 limit of 1.
+- **Risk:** bleed-outs rise: a pulse that stays above 1 in the worst case can still fall below it after a Sponge skill fail (a 2% chance in the owner's setup) on a `cant_see` turn at a low pulse. Massive Trauma went slightly down: 97.5% to 96.4% in the owner's setup, 96.9% to 96.4% on fresh seeds, and -0.8 points over the full grid, with its avoidable deaths up from 0 to 5 (seeds 0-199) and 4 (fresh).
+- **Status:** applied in M4.
+- **Revisit if:** bleed-out deaths become a top cause of death in M4 reports.

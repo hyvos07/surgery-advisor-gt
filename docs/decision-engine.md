@@ -50,7 +50,7 @@ First draft, in priority order. The benchmark will reorder and tune them. IDs ar
 | --- | --- | --- | --- |
 | E1 | Revive | Status is `heart_stopped` | Defibrillator |
 | E2 | Clear view | Visibility is `cant_see` | Sponge |
-| E3 | Save pulse | Worst-case forecast pulse for next turn is `extremely_weak` (see [Forecast](#forecast)) | Transfusion |
+| E3 | Save pulse | Worst-case forecast pulse falls below 1 (`PULSE_BLED_OUT`) within the margin's pulse turns ahead (see [Forecast](#forecast), D22) | Transfusion |
 | E4 | Keep asleep | An incision is open and status is `awake` or `coming_to` | Anesthetic |
 | E5 | Stop heavy bleeding | Bleeding is `losing` or `very_quickly` and an incision is open | Clamp |
 | E6 | Fever crisis | Fever is `climbing_fast`, or forecast temperature reaches the crisis threshold within 2 turns | Lab Kit if not done, else Antibiotics |
@@ -140,12 +140,14 @@ The forecast predicts next turn's worst case from the screen words, using the up
 
 | Value | Worst-case estimate for next turn |
 | --- | --- |
-| Pulse | Lowest pulse in the current word's range − (highest bleeding in its range; `very_quickly` counts as the configured cap, default 6) − (1 if an incision is open) |
+| Pulse | Lowest pulse in the current word's range − (highest bleeding in its range; `very_quickly` counts as the configured cap, default 6) − (1 if an incision is open), times the pulse turns ahead. E3 compares this `pulse_floor` with `PULSE_BLED_OUT` (1), not with a pulse word (D22) |
 | Temperature | Current temperature + highest fever rate in the fever word's range, per turn |
 | Sleep | `sleep_left` − 1 |
 | Dirt | Whether bleeding + open incisions could take visibility to `cant_see` |
 
 The forecast is deliberately pessimistic. The benchmark decides whether it is too pessimistic.
+
+**Pulse words are not the danger line (D22).** In SurgE the patient bleeds out only when the pulse falls below 1; `extremely_weak` (10 or less) is just a word. E3 therefore transfuses only when the worst-case pulse could fall below 1, not when it could merely show `extremely_weak`. `Forecast.pulse_word_next` is still computed but no rule uses it.
 
 ## Special conditions
 

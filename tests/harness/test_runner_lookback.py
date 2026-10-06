@@ -55,8 +55,8 @@ def test_lookback_is_one_by_default() -> None:
 def test_lookback_3_turns_an_unlucky_death_avoidable() -> None:
     assert fields(play("baseline", 19, 3)) == (AVOIDABLE_DEATH, 1, "stitches")
     assert fields(play("baseline", 35, 3)) == (AVOIDABLE_DEATH, 1, "clamp")
-    # The advisor too: two turns before the fatal one a Sponge would have won.
-    assert fields(play("advisor", 8, 3)) == (AVOIDABLE_DEATH, 2, "sponge")
+    # The advisor too: two turns before the fatal one Stitches would have won.
+    assert fields(play("advisor", 10, 3)) == (AVOIDABLE_DEATH, 2, "stitches")
 
 
 def test_lookback_3_keeps_what_lookback_1_already_found() -> None:
@@ -65,7 +65,7 @@ def test_lookback_3_keeps_what_lookback_1_already_found() -> None:
 
 def test_lookback_3_leaves_a_hopeless_death_unlucky() -> None:
     assert fields(play("baseline", 12, 3)) == (UNLUCKY_DEATH, None, None)
-    assert fields(play("advisor", 10, 3)) == (UNLUCKY_DEATH, None, None)
+    assert fields(play("advisor", 166, 3)) == (UNLUCKY_DEATH, None, None)
 
 
 def test_a_longer_lookback_only_adds_avoidable_deaths() -> None:

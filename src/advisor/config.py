@@ -21,6 +21,8 @@ SLEEP_UNCONSCIOUS_MIN = 3  # sleep 3+ shows Unconscious
 NORMAL_TEMPERATURE_F = 98.6  # Antibiotics do nothing at or below this
 INFECTION_DEATH_F = 111.0  # temperature at or above this kills
 
+PULSE_BLED_OUT = 1  # SurgE: a pulse below 1 bleeds the patient out (D22)
+ONE_TURN = 1  # a forecast horizon of one turn reads "next turn" in reasons
 PULSE_MAX = 40
 TRANSFUSION_PULSE_GAIN = 15
 

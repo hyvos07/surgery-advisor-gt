@@ -18,6 +18,8 @@ from advisor.config import (
     FEVER_CRISIS_TURNS,
     FEVER_TREAT_F,
     NORMAL_TEMPERATURE_F,
+    ONE_TURN,
+    PULSE_BLED_OUT,
     Config,
 )
 from advisor.forecast import Forecast
@@ -27,7 +29,6 @@ from advisor.state import (
     Bleeding,
     Decision,
     Fever,
-    Pulse,
     ScreenState,
     Site,
     Status,
@@ -127,9 +128,14 @@ def rule_e2_clear_view(
 def rule_e3_save_pulse(
     s: ScreenState, m: Memory, f: Forecast, c: Config
 ) -> Decision | None:
-    if f.pulse_word_next is Pulse.EXTREMELY_WEAK:
+    # Only a pulse below PULSE_BLED_OUT kills; "extremely weak" is just a word (D22).
+    if f.pulse_floor < PULSE_BLED_OUT:
+        turns = c.margins.pulse_turns_ahead
+        when = "next turn" if turns == ONE_TURN else f"within {turns} turns"
         return Decision(
-            Tool.TRANSFUSION, "E3", "Pulse may drop to extremely weak next turn"
+            Tool.TRANSFUSION,
+            "E3",
+            f"Pulse could fall below {PULSE_BLED_OUT} {when} and bleed out",
         )
     return None
 
