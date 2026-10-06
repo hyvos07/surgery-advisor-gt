@@ -43,8 +43,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: checks
     runs-on: ubuntu-latest
-    # TODO(M1): remove once `surg bench` is implemented; the M0 stub exits 1.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
         with:

@@ -2,9 +2,9 @@
 
 | | |
 | --- | --- |
-| Status | Draft, pre-code |
+| Status | Draft; implementation at M3 (see [PLAN.md](PLAN.md)) |
 | Owner | Daniel Liman |
-| Last updated | 2026-10-05 |
+| Last updated | 2026-10-06 |
 | Living version | [Plan & PRD doc](https://claude.ai/code/artifact/e9963b51-b5a3-4769-8b3a-5f630bce91c1) |
 
 ## 1. Summary
