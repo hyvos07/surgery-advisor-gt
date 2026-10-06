@@ -50,6 +50,9 @@ def _bench(args: argparse.Namespace) -> int:
     except ValueError as error:
         print(f"surg bench: {error}", file=sys.stderr)
         return 1
+    if args.lookback < 1:
+        print("surg bench: --lookback must be at least 1", file=sys.stderr)
+        return 1
     saved = None
     if args.compare:
         saved = json.loads(Path(args.compare).read_text(encoding="utf-8"))
@@ -60,7 +63,12 @@ def _bench(args: argparse.Namespace) -> int:
 
     try:
         report = bench.run_grid(
-            args.policy, args.runs, grid, workers=args.workers, progress=progress
+            args.policy,
+            args.runs,
+            grid,
+            workers=args.workers,
+            progress=progress,
+            lookback=args.lookback,
         )
         comparison = bench.compare_reports(report, saved) if saved else None
     except ValueError as error:
@@ -138,13 +146,24 @@ def _screen(state: dict[str, object]) -> str:
 
 
 def _play(args: argparse.Namespace) -> int:
-    from harness.runner import Surgery, policy_by_name, resolve_settings
+    from harness.runner import (
+        AVOIDABLE_DEATH,
+        UNLUCKY_DEATH,
+        Surgery,
+        policy_by_name,
+        resolve_settings,
+    )
 
     try:
         settings = resolve_settings(
             args.malady, args.condition, args.skill, args.modifier, args.seed
         )
-        surgery = Surgery(settings, policy_by_name(args.policy), args.policy)
+        surgery = Surgery(
+            settings,
+            policy_by_name(args.policy),
+            args.policy,
+            lookback=args.lookback,
+        )
     except ValueError as error:
         print(f"surg play: {error}", file=sys.stderr)
         return 1
@@ -169,11 +188,17 @@ def _play(args: argparse.Namespace) -> int:
 
     result = surgery.result()
     print(f"\n{record['tool_text']}")
-    print(
+    line = (
         f"Result: {result.outcome} | {result.end_text or 'turn cap reached'} | "
         f"{result.turns} turns, {result.skill_fails} skill fails, "
         f"{result.illegal_moves} illegal moves"
     )
+    if result.outcome in (AVOIDABLE_DEATH, UNLUCKY_DEATH):
+        line += (
+            f" | mistake_turns_back {_dash(result.mistake_turns_back)}, "
+            f"alternative {_dash(result.alternative)}"
+        )
+    print(line)
     return 0
 
 
@@ -211,6 +236,13 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--compare", metavar="REPORT.json", help="saved report")
     bench.add_argument("--out", metavar="BASE", help="write BASE.json and BASE.md")
     bench.add_argument("--workers", type=int, help="processes (default: CPU count)")
+    bench.add_argument(
+        "--lookback",
+        type=int,
+        default=1,
+        help="turns to look back to tell avoidable from unlucky deaths "
+        "(default: %(default)s, at least 1)",
+    )
 
     tools = sub.add_parser(
         "tools", help="Compare tools per success on surgeries both reports won"
@@ -227,6 +259,12 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--seed", type=int, help="same seed, same surgery")
     play.add_argument("--policy", choices=POLICY_CHOICES, default="advisor")
     play.add_argument("--log", metavar="FILE.jsonl", help="write each turn as JSON")
+    play.add_argument(
+        "--lookback",
+        type=int,
+        default=1,
+        help="turns to look back when classifying a death (default: %(default)s)",
+    )
 
     web = sub.add_parser("web", help="Start the web viewer on http://127.0.0.1:8000")
     web.add_argument("--port", type=int, default=8000)

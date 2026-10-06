@@ -13,7 +13,7 @@ from advisor import knowledge
 from advisor.config import ANTISEPTIC_DRAFT, ANTISEPTIC_MINIMAL, Config
 from advisor.engine import decide
 from advisor.memory import Memory
-from advisor.state import ScreenState
+from advisor.state import Decision, ScreenState, Tool
 from harness.baseline import baseline_policy, train_e_plus_policy
 from harness.observe import observe, strip_formatting
 from harness.surge import (
@@ -25,6 +25,11 @@ from harness.surge import (
 )
 
 MAX_TURNS = 80  # stands in for the real game's 2-minute timer
+
+# The lookback asks "would a different tool at an earlier turn have saved it?" by
+# playing the surgery on from there: the alternative must win 2 of 3 rollouts.
+BRANCH_ROLLOUTS = 3
+BRANCH_WINS_NEEDED = 2
 
 SUCCESS = "success"
 AVOIDABLE_DEATH = "avoidable_death"
@@ -79,6 +84,11 @@ class Result:
     skill_fails: int
     illegal_moves: int
     end_text: str
+    # For deaths only: how many turns before the fatal one a different tool would
+    # have saved the surgery, and that tool. Both None when the death is unlucky,
+    # when the cause was an illegal move, and for surgeries that did not die.
+    mistake_turns_back: int | None = None
+    alternative: str | None = None
 
 
 class AdvisorPolicy:
@@ -102,6 +112,16 @@ class AdvisorPolicy:
                 antiseptic_mode=self.antiseptic_mode,
             )
         return decide(screen, self.memory, self.config).to_dict()
+
+    def note_override(self, tool: str) -> None:
+        """Tell memory that `tool` was applied instead of the decision just made.
+
+        The death analysis replaces a tool and plays on; memory must then confirm
+        the replaced tool's effect, not the one the engine picked.
+        """
+        self.memory.last_decision = Decision(
+            Tool(tool), "X0", "Branch: tool replaced for death analysis"
+        )
 
 
 # Each entry builds a new policy, so no memory is shared between surgeries.
@@ -164,11 +184,23 @@ class Surgery:
         policy: Policy,
         policy_name: str = "policy",
         max_turns: int = MAX_TURNS,
+        lookback: int = 1,
     ) -> None:
+        if lookback < 1:
+            raise ValueError(f"lookback must be at least 1, got {lookback}")
         self.settings = settings
         self.policy = policy
         self.policy_name = policy_name
         self.max_turns = max_turns
+        self.lookback = lookback
+        # A death is classified (and replayed from here) only in the real surgery;
+        # the branches of the lookback turn this off, and a death is just a death.
+        self._classify = True
+        # A branch needs a fresh policy that has seen nothing yet, so keep an
+        # untouched copy (only when a lookback beyond the fatal turn is asked for).
+        self._pristine_policy = copy.deepcopy(policy) if lookback > 1 else None
+        self.mistake_turns_back: int | None = None
+        self.alternative: str | None = None
         self.rng = random.Random(settings.seed)
         with surge_random(self.rng):
             self.patient = start_surgery(
@@ -187,11 +219,24 @@ class Surgery:
     def ended(self) -> bool:
         return self.outcome is not None
 
-    def step(self) -> Record:
-        """Apply the pending decision, run SurgE's turn, and return the turn record."""
+    def step(self, override: str | None = None) -> Record:
+        """Apply the pending decision, run SurgE's turn, and return the turn record.
+
+        `override` applies another tool instead (the death analysis uses it); the
+        policy is told, if it can be, so its memory follows what really happened.
+        """
         if self.decision is None:
             raise RuntimeError("the surgery has ended")
         state, decision = self.state, self.decision
+        if override is not None and override != decision["tool"]:
+            note = getattr(self.policy, "note_override", None)
+            if note is not None:
+                note(override)
+            decision = {
+                "tool": override,
+                "rule": "X0",
+                "reason": "Branch: tool replaced for death analysis",
+            }
 
         # An unusable tool is rejected and recorded; the Sponge (always usable) is
         # applied instead so the surgery can go on.
@@ -224,9 +269,12 @@ class Surgery:
 
         if self.patient.IsSurgeryEnded:
             self.end_text = strip_formatting(self.patient.EndText)
-            self.outcome = (
-                SUCCESS if _is_success(self.patient) else self._classify_death()
-            )
+            if _is_success(self.patient):
+                self.outcome = SUCCESS
+            elif self._classify:
+                self.outcome = self._classify_death()
+            else:
+                self.outcome = UNLUCKY_DEATH  # a branch only needs "not a success"
         elif self.turn >= self.max_turns:
             self.outcome = TIMEOUT
         record["ended"] = self.ended
@@ -252,14 +300,18 @@ class Surgery:
             skill_fails=self.skill_fails,
             illegal_moves=self.illegal_moves,
             end_text=self.end_text,
+            mistake_turns_back=self.mistake_turns_back,
+            alternative=self.alternative,
         )
 
     def _classify_death(self) -> str:
         """Avoidable if the policy broke the rules or another tool would have lived.
 
-        The check is one turn deep: replay the surgery up to the fatal turn, then
-        try every other usable tool from that same state and random draw. A mistake
-        made turns earlier (never clamping a bleed, say) still counts as unlucky.
+        At the fatal turn: replay the surgery up to it, then try every other usable
+        tool from that same state and random draw; one that survives the turn makes
+        the death avoidable. With `lookback` above 1, the same is asked of each of
+        the turns before it, newest first, but there an alternative has to win the
+        whole surgery (see `_branch_works`). Nothing found means unlucky.
         """
         if self.illegal_moves:
             return AVOIDABLE_DEATH
@@ -282,8 +334,62 @@ class Surgery:
             with surge_random(trial_rng):
                 trial.UseTool(TOOL_TYPES[alternative])
             if not trial.IsSurgeryEnded or _is_success(trial):
+                self.mistake_turns_back, self.alternative = 0, alternative
                 return AVOIDABLE_DEATH
+        for back in range(1, min(self.lookback, len(self.applied))):
+            turn = len(self.applied) - 1 - back
+            branch = self._replay_to(turn)
+            for alternative in branch.state["usable_tools"]:
+                if alternative != self.applied[turn] and _branch_works(
+                    branch, turn, alternative
+                ):
+                    self.mistake_turns_back, self.alternative = back, alternative
+                    return AVOIDABLE_DEATH
         return UNLUCKY_DEATH
+
+    def _replay_to(self, turn: int) -> "Surgery":
+        """A branch point: a fresh policy and patient taken through `turn` turns.
+
+        The tools applied in the real surgery are applied again, so the patient,
+        the random state and the policy's memory are what they were at that turn;
+        the policy's pending decision for it is made, but not applied.
+        """
+        assert self._pristine_policy is not None
+        replay = Surgery(
+            self.settings,
+            copy.deepcopy(self._pristine_policy),
+            self.policy_name,
+            self.max_turns,
+        )
+        replay._classify = False
+        for tool in self.applied[:turn]:
+            replay.step(override=tool)
+        return replay
+
+
+def _branch_works(branch: Surgery, turn: int, tool: str) -> bool:
+    """True if applying `tool` at the branch point wins at least 2 of 3 rollouts.
+
+    Each rollout starts from a copy of the branch point (policy memory included)
+    with its own seeded random state, so the answer is repeatable but not one lucky
+    draw. It stops as soon as the result is settled.
+    """
+    wins = losses = 0
+    for rollout in range(BRANCH_ROLLOUTS):
+        trial = copy.deepcopy(branch)
+        trial.rng = random.Random(f"{branch.settings.seed}-{turn}-{tool}-{rollout}")
+        trial.step(override=tool)
+        while not trial.ended:
+            trial.step()
+        if trial.outcome == SUCCESS:
+            wins += 1
+        else:
+            losses += 1
+        if wins >= BRANCH_WINS_NEEDED:
+            return True
+        if losses > BRANCH_ROLLOUTS - BRANCH_WINS_NEEDED:
+            return False
+    return False
 
 
 def run_surgery(
@@ -292,10 +398,11 @@ def run_surgery(
     policy_name: str = "policy",
     *,
     max_turns: int = MAX_TURNS,
+    lookback: int = 1,
     on_record: Callable[[Record], None] | None = None,
 ) -> Result:
     """Play one surgery to its end; `on_record` receives each turn's log record."""
-    surgery = Surgery(settings, policy, policy_name, max_turns)
+    surgery = Surgery(settings, policy, policy_name, max_turns, lookback)
     while not surgery.ended:
         record = surgery.step()
         if on_record is not None:

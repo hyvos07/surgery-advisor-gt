@@ -48,7 +48,13 @@ Skipping step 3 leaves the status empty, and a Scalpel on turn 0 would not kill 
 
 Telling avoidable from unlucky deaths: for each death, the runner replays the surgery up to the fatal turn from its seed, then tries every other usable tool from that same state and random draw. If any alternative survives that turn, the death is avoidable. This check runs on deaths only, so it stays cheap.
 
-**Limit:** the check is one turn deep. A death caused by a mistake made earlier, such as never clamping a bleed, is counted as unlucky. Milestone M3 adds a deeper lookback ([PLAN.md](../PLAN.md)).
+**Lookback.** A mistake made earlier, such as never clamping a bleed, would still count as unlucky with that one-turn check. `--lookback N` (`surg bench`, `surg play`; default 1, at least 1) looks back up to N turns, newest first. At the fatal turn (0 turns back) the check above is used as it is, so `--lookback 1` gives exactly the classification described above. At each earlier turn *t* (1 to N-1 turns back) the runner branches: for every usable tool other than the one applied at *t* (in `usable_tools` order), it applies that tool and lets a fresh copy of the same policy play on to the end, with the usual turn cap. A branch works if it ends in success in at least 2 of 3 rollouts. Rollout *r* uses `random.Random(f"{seed}-{t}-{tool}-{r}")` from the branch point on, so the result is repeatable but not one lucky draw; a branch stops as soon as 2 rollouts have won or 2 have failed.
+
+The death is avoidable at the newest turn where some branch works. If nothing works within N turns it is unlucky. An illegal move still makes it avoidable. To branch at *t*, the runner builds a fresh policy, replays the tools applied before *t* with the surgery's seeded random state, and feeds the policy every screen on the way, so the advisor's memory matches. At *t* the policy has made its own pick; if it has a `note_override(tool)` method (the advisor does), the runner calls it so memory confirms the tool that was really applied next turn. The stateless baselines need no such hook.
+
+`Result` (and each death entry in a report cell) carries two more fields: `mistake_turns_back`, how many turns before the fatal one the working branch was (0 is the fatal turn itself), and `alternative`, the first tool in `usable_tools` order that worked. Both are null for an unlucky death, for a death caused by an illegal move, and for surgeries that did not die. The report meta records `lookback`, and `--compare` refuses a saved report with a different one (a report with no `lookback` key counts as 1). Deeper lookback only moves deaths from unlucky to avoidable, never the other way, and never changes success rates. It costs time in proportion to the deaths: see the AGENTS.md command `surg bench --runs 50 --lookback 3`.
+
+**Limits:** an alternative is judged by playing the same policy on, so "avoidable" means "the policy's own later play would have won", not "some perfect play would have". Only one tool is swapped, at one turn; two mistakes that each needed fixing count as unlucky.
 
 ## Train-E baseline
 
@@ -116,9 +122,9 @@ Run *i* of a cell uses a seed derived from the cell and *i*, so the same grid al
 
 ### Report
 
-Written to `reports/<timestamp>.json` and `reports/<timestamp>.md`, or to `<BASE>.json` and `<BASE>.md` with `--out BASE`. `--compare` refuses a saved report made with a different `--runs`, grid (including `--skills` and `--modifiers`) or turn cap. Every surgery gets a fresh policy, so the advisor's memory never carries over from one seed to the next.
+Written to `reports/<timestamp>.json` and `reports/<timestamp>.md`, or to `<BASE>.json` and `<BASE>.md` with `--out BASE`. `--compare` refuses a saved report made with a different `--runs`, grid (including `--skills` and `--modifiers`), turn cap or `--lookback`. Every surgery gets a fresh policy, so the advisor's memory never carries over from one seed to the next.
 
-The JSON holds the grid, per-cell outcome counts and, for every death, its seed, outcome and the last 3 rules that fired. Contents:
+The JSON holds the grid, per-cell outcome counts and, for every death, its seed, outcome, the last 3 rules that fired, and its `mistake_turns_back` and `alternative` (see Lookback above). Contents:
 
 - Success rate and outcome counts per malady, per condition and per skill level, advisor and baseline side by side
 - Tools used, since fewer is better once a surgery succeeds: the average per success and the fewest any success needed, in every row; a **Tools used** table of how many of each tool a success takes and how many every surgery spent in total (the gap is waste, such as Sponge loops); with `--compare`, the change in the average. The per-cell JSON keeps the counts per tool (`tool_counts_success`, `tool_counts_all`) and the fewest (`min_tools_on_success`). Each turn log line (`surg play --log`, the web turn log) records the tool applied, and the web end card lists the tools a surgery used.

@@ -108,9 +108,13 @@ def grid_from_options(
     )
 
 
-def run_cell(job: tuple[str, Cell, int]) -> Report:
-    """Play `runs` seeded surgeries (seeds 0 to runs-1) of one grid cell."""
-    policy_name, (malady, condition, skill, modifier), runs = job
+def run_cell(job: tuple[str, Cell, int] | tuple[str, Cell, int, int]) -> Report:
+    """Play `runs` seeded surgeries (seeds 0 to runs-1) of one grid cell.
+
+    The job is (policy, cell, runs) and optionally the death lookback (default 1).
+    """
+    policy_name, (malady, condition, skill, modifier), runs, *rest = job
+    lookback = rest[0] if rest else 1
     outcomes = dict.fromkeys(OUTCOMES, 0)
     tools_on_success = turns = illegal_moves = skill_fails = 0
     fewest: int | None = None
@@ -124,6 +128,7 @@ def run_cell(job: tuple[str, Cell, int]) -> Report:
             Settings(malady, condition, skill, modifier, seed),
             policy_by_name(policy_name),  # fresh per surgery: the advisor has memory
             policy_name,
+            lookback=lookback,
             on_record=lambda record, rules=last_rules: rules.append(
                 record["decision"]["rule"]
             ),
@@ -149,6 +154,8 @@ def run_cell(job: tuple[str, Cell, int]) -> Report:
                     "outcome": result.outcome,
                     "turns": result.turns,
                     "last_rules": list(last_rules),
+                    "mistake_turns_back": result.mistake_turns_back,
+                    "alternative": result.alternative,
                 }
             )
     return {
@@ -211,12 +218,15 @@ def run_grid(
     grid: Grid | None = None,
     workers: int | None = None,
     progress: Callable[[int, int], None] | None = None,
+    lookback: int = 1,
 ) -> Report:
     """Run every cell of the grid; `workers=1` runs in this process."""
     policy_by_name(policy_name)  # fail fast on an unknown policy
+    if lookback < 1:
+        raise ValueError(f"--lookback must be at least 1, got {lookback}")
     grid = grid or full_grid()
     cells = grid.cells()
-    jobs = [(policy_name, cell, runs) for cell in cells]
+    jobs = [(policy_name, cell, runs, lookback) for cell in cells]
     workers = max(1, min(workers or os.cpu_count() or 1, len(jobs)))
 
     started = time.perf_counter()
@@ -244,6 +254,7 @@ def run_grid(
             "runs": runs,
             "seeds": f"0 to {runs - 1}",
             "max_turns": MAX_TURNS,
+            "lookback": lookback,
             "grid": grid.as_dict(),
             "tool_order": list(TOOL_IDS),
             "created": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -259,20 +270,24 @@ def run_grid(
 
 
 def _check_comparable(current: Report, saved: Report) -> None:
-    """Refuse reports made with other run counts, grids or turn caps (rule 6)."""
-    for key in ("runs", "max_turns", "grid"):
-        if current["meta"][key] != saved["meta"][key]:
+    """Refuse reports made with other run counts, grids, turn caps or lookbacks.
+
+    Reports saved before `--lookback` existed have no such key; they used 1.
+    """
+    for key in ("runs", "max_turns", "lookback", "grid"):
+        now = current["meta"].get(key, 1 if key == "lookback" else None)
+        then = saved["meta"].get(key, 1 if key == "lookback" else None)
+        if now != then:
             raise ValueError(
-                f"cannot compare: {key} differs "
-                f"({saved['meta'][key]!r} saved vs {current['meta'][key]!r} now)"
+                f"cannot compare: {key} differs ({then!r} saved vs {now!r} now)"
             )
 
 
 def compare_reports(current: Report, saved: Report) -> Report:
     """Change in every summary number against a saved report (hard rule 6).
 
-    Refuses reports made with other run counts, grids or turn caps, because their
-    seeds don't line up.
+    Refuses reports made with other run counts, grids, turn caps or lookbacks,
+    because their seeds or death classes don't line up.
     """
     _check_comparable(current, saved)
 
@@ -311,7 +326,7 @@ def render_markdown(report: Report, comparison: Report | None = None) -> str:
         f"# Benchmark: {meta['policy']}",
         "",
         f"- Runs per cell: {meta['runs']} (seeds {meta['seeds']}), "
-        f"turn cap {meta['max_turns']}",
+        f"turn cap {meta['max_turns']}, death lookback {meta.get('lookback', 1)}",
         f"- Cells: {len(report['cells'])}, surgeries: {summary['overall']['runs']}",
         f"- Created {meta['created']}, {meta['elapsed_seconds']} s "
         f"on {meta['workers']} workers",
