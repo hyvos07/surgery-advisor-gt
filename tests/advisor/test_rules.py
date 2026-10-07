@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from advisor import rules
+from advisor import engine, rules
 from advisor.config import FEVER_TREAT_F, Config
 from advisor.forecast import Forecast
 from advisor.knowledge import (
@@ -34,6 +34,7 @@ OWNER = Config.for_patient(100, "exquisite_bone_saw")
 LOW_SKILL = Config.for_patient(0, None)
 
 MAX_REASON = 100
+P8 = 8  # the one phase rule that runs before P1 (D25)
 
 
 def memory_for(know: Knowledge, malady: str | None = None, **fields: Any) -> Memory:
@@ -80,8 +81,10 @@ def silent(
 
 
 def test_rules_are_in_doc_order() -> None:
+    # D25: P8 is evaluated right after the emergency rules, before P1.
     ids = [fn.__name__.split("_")[1].upper() for fn in rules.RULES]
-    expected = [f"E{n}" for n in range(1, 8)] + [f"P{n}" for n in range(1, 14)]
+    phase = [n for n in range(1, 14) if n != P8]
+    expected = [f"E{n}" for n in range(1, 8)] + ["P8"] + [f"P{n}" for n in phase]
     assert ids == expected
 
 
@@ -880,6 +883,121 @@ def test_p8_stitches_surface_bleeding(know: Knowledge, make_state: MakeState) ->
         rules.rule_p8_surface_bleeding,
         make_state(bleeding=None, incisions=0),
         memory,
+    )
+
+
+def test_p8_stitches_heavy_bleeding_with_no_incision(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    for word in ("losing", "very_quickly"):
+        fires(
+            rules.rule_p8_surface_bleeding,
+            "P8",
+            Tool.STITCHES,
+            make_state(bleeding=word, incisions=0, temperature=102.0),
+            memory_for(know),
+        )
+
+
+def test_p8_guard_skips_slow_bleeding_above_the_fever_threshold(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # D25: slow bleeding is left to the stage rules (and P2) while the temperature
+    # is above FEVER_TREAT_F; heavy bleeding is never held back.
+    memory = memory_for(know)
+    hot = FEVER_TREAT_F + 0.6
+    silent(
+        rules.rule_p8_surface_bleeding,
+        make_state(bleeding="slowly", incisions=0, temperature=hot),
+        memory,
+    )
+    fires(
+        rules.rule_p8_surface_bleeding,
+        "P8",
+        Tool.STITCHES,
+        make_state(bleeding="slowly", incisions=0, temperature=FEVER_TREAT_F),
+        memory,
+    )
+    fires(
+        rules.rule_p8_surface_bleeding,
+        "P8",
+        Tool.STITCHES,
+        make_state(bleeding="slowly", incisions=0, temperature=99.0),
+        memory,
+    )
+    fires(
+        rules.rule_p8_surface_bleeding,
+        "P8",
+        Tool.STITCHES,
+        make_state(bleeding="losing", incisions=0, temperature=hot),
+        memory,
+    )
+
+
+# --- P8 before the stage rules (D25) -----------------------------------------
+
+# Every tool but Fix It, which these Broken Leg and undiagnosed states never use.
+ALL_TOOLS = [t.value for t in Tool if t is not Tool.FIX_IT]
+
+
+def pick(
+    state: ScreenState, memory: Memory, config: Config = CONFIG
+) -> tuple[str, Tool]:
+    """The (rule, tool) that `decide` returns for a hand-built state."""
+    decision = engine.decide(state, memory, config)
+    return decision.rule, decision.tool
+
+
+@pytest.mark.parametrize("word", ["losing", "very_quickly"])
+def test_p8_stitches_heavy_bleeding_before_diagnosing(
+    know: Knowledge, make_state: MakeState, word: str
+) -> None:
+    state = make_state(bleeding=word, usable_tools=ALL_TOOLS)
+    assert pick(state, memory_for(know)) == ("P8", Tool.STITCHES)
+
+
+def test_p8_stitches_heavy_bleeding_before_splinting(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    memory = memory_for(know, "Broken Leg")
+    bones = {"broken": 1, "shattered": 0}
+    bleeding = make_state(bleeding="losing", bones=bones, usable_tools=ALL_TOOLS)
+    assert pick(bleeding, memory) == ("P8", Tool.STITCHES)
+    # Once the bleeding is gone, the splint comes next.
+    dry = make_state(bones=bones, usable_tools=ALL_TOOLS)
+    assert pick(dry, memory) == ("P7", Tool.SPLINT)
+
+
+def test_p8_hot_slow_bleeding_leaves_the_next_rule_to_fire(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    # Undiagnosed with slow bleeding: at 101 F P8 is silent and P1 diagnoses;
+    # at 99 F P8 stitches.
+    hot = make_state(bleeding="slowly", temperature=101.0, usable_tools=ALL_TOOLS)
+    assert pick(hot, memory_for(know)) == ("P1", Tool.ULTRASOUND)
+    cool = make_state(bleeding="slowly", temperature=99.0, usable_tools=ALL_TOOLS)
+    assert pick(cool, memory_for(know)) == ("P8", Tool.STITCHES)
+
+
+def test_emergency_rules_still_come_before_p8(
+    know: Knowledge, make_state: MakeState
+) -> None:
+    def heavy(**fields: Any) -> ScreenState:
+        return make_state(bleeding="very_quickly", usable_tools=ALL_TOOLS, **fields)
+
+    assert pick(heavy(status="heart_stopped"), memory_for(know)) == (
+        "E1",
+        Tool.DEFIBRILLATOR,
+    )
+    assert pick(heavy(visibility="cant_see"), memory_for(know)) == ("E2", Tool.SPONGE)
+    assert pick(heavy(pulse="extremely_weak"), memory_for(know)) == (
+        "E3",
+        Tool.TRANSFUSION,
+    )
+    # P8 must stay below E6: a fever that is climbing fast is treated first.
+    assert pick(heavy(fever="climbing_fast", temperature=102.0), memory_for(know)) == (
+        "E6",
+        Tool.LAB_KIT,
     )
 
 

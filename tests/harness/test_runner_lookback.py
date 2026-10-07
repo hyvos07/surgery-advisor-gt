@@ -63,8 +63,10 @@ def test_lookback_is_one_by_default() -> None:
 
 # Pinned by scanning seeds: the advisor at Heart Attack, no condition, skill 50, and
 # at Fatty Liver. Both deaths were unlucky at lookback 1.
-ADVISOR_HEART_50 = Settings("Heart Attack", "none", 50, None, 44)
-ADVISOR_LIVER_50 = Settings("Fatty Liver", "none", 50, None, 71)
+# (Re-pinned after D25: Heart Attack at skill 50 seed 44 and Fatty Liver seed 71 are
+# now won; seeds 0-799 of Heart Attack at skill 50 hold no such death any more.)
+ADVISOR_HEART_25 = Settings("Heart Attack", "none", 25, None, 70)
+ADVISOR_LIVER_50 = Settings("Fatty Liver", "none", 50, None, 358)
 
 # Pinned by scanning seeds (the advisor, skill 50 or 25, no modifier). In the first two
 # the advisor's Antibiotics failed its skill roll on the fatal turn (E6), which adds
@@ -76,12 +78,12 @@ BRAINWORMS_1 = Settings("Brainworms", "none", 50, None, 1)
 FATTY_LIVER_4 = Settings("Fatty Liver", "none", 50, None, 4)
 FATTY_LIVER_7 = Settings("Fatty Liver", "none", 50, None, 7)
 # Avoidable at the fatal turn by the shared-roll test: Stitches wins 2 of 3 rollouts
-# and the policy's own tool does not. In both Brainworms seeds (71 and 5, after the
-# D24 margins; they were 71 and 10 before) a skill-failed Transfusion ends it and no
+# and the policy's own tool does not. In both Brainworms seeds (253 and 286, after
+# D25; they were 71 and 5 after D24) a skill-failed Transfusion ends it and no
 # tool survived the fatal turn on the real draw, so they were unlucky before D23.
-BRAINWORMS_71 = Settings("Brainworms", "none", 50, None, 71)
-BRAINWORMS_5 = Settings("Brainworms", "none", 50, None, 5)
-FATTY_LIVER_25_18 = Settings("Fatty Liver", "none", 25, None, 18)
+BRAINWORMS_253 = Settings("Brainworms", "none", 50, None, 253)
+BRAINWORMS_286 = Settings("Brainworms", "none", 50, None, 286)
+FATTY_LIVER_25_24 = Settings("Fatty Liver", "none", 25, None, 24)
 
 
 def play_settings(settings: Settings, lookback: int = 3) -> Result:
@@ -102,11 +104,17 @@ def branch_at(
 
 
 def test_lookback_3_an_unlucky_death_stays_avoidable_when_the_original_fails() -> None:
-    result = play_settings(ADVISOR_HEART_50)
+    result = play_settings(ADVISOR_HEART_25)
     assert (result.outcome, result.mistake_turns_back) == (AVOIDABLE_DEATH, 1)
-    assert result.alternative == "sponge"
-    assert result.alternatives == ("sponge", "stitches", "lab_kit", "antiseptic")
-    assert play_settings(ADVISOR_HEART_50, 1).outcome == UNLUCKY_DEATH
+    assert result.alternative == "stitches"
+    assert result.alternatives == (
+        "stitches",
+        "sponge",
+        "antiseptic",
+        "fix_it",
+        "antibiotics",
+    )
+    assert play_settings(ADVISOR_HEART_25, 1).outcome == UNLUCKY_DEATH
 
 
 def test_the_credited_alternative_has_the_most_wins_not_the_first_in_the_tray() -> None:
@@ -176,7 +184,8 @@ def test_every_tool_at_a_turn_gets_the_same_draws(
     monkeypatch.setattr(runner, "rollout_rng", spy)
     for current in ("sponge", "transfusion", original):
         _rollouts(branch, turn, current, run_all_when_working=True)
-    every = [(71, turn, 0), (71, turn, 1), (71, turn, 2)]
+    seed = ADVISOR_LIVER_50.seed
+    every = [(seed, turn, 0), (seed, turn, 1), (seed, turn, 2)]
     for tool, calls in asked.items():  # a tool that cannot win stops early
         assert calls == every[: len(calls)], tool
     assert asked["transfusion"] == every
@@ -184,7 +193,7 @@ def test_every_tool_at_a_turn_gets_the_same_draws(
 
 @pytest.mark.parametrize(
     ("settings", "back"),
-    [(ADVISOR_LIVER_50, 2), (BRAINWORMS_71, 0), (BRAINWORMS_1, 0)],
+    [(ADVISOR_LIVER_50, 2), (BRAINWORMS_253, 0), (BRAINWORMS_1, 0)],
 )
 def test_stopping_early_gives_the_same_verdict_as_running_every_rollout(
     settings: Settings, back: int
@@ -197,14 +206,20 @@ def test_stopping_early_gives_the_same_verdict_as_running_every_rollout(
 
 
 def test_lookback_3_keeps_what_lookback_1_already_found() -> None:
-    for settings in (BRAINWORMS_71, BRAINWORMS_5, FATTY_LIVER_25_18):
+    for settings in (BRAINWORMS_253, BRAINWORMS_286, FATTY_LIVER_25_24):
         one, three = play_settings(settings, 1), play_settings(settings, 3)
         assert one.outcome == AVOIDABLE_DEATH and one.mistake_turns_back == 0
         assert one == three
     # At the fatal turn the working tools are listed best first, without repeats.
-    result = play_settings(FATTY_LIVER_25_18, 1)
+    result = play_settings(FATTY_LIVER_25_24, 1)
     assert result.alternative == "sponge"
-    assert result.alternatives == ("sponge", "stitches", "ultrasound", "antiseptic")
+    assert result.alternatives == (
+        "sponge",
+        "antiseptic",
+        "ultrasound",
+        "transfusion",
+        "stitches",
+    )
 
 
 def survivors_of_the_fatal_turn(settings: Settings) -> list[str]:
@@ -252,7 +267,7 @@ def test_a_skill_failed_antibiotics_on_the_fatal_turn_is_luck(
 def test_the_fatal_turn_is_avoidable_if_another_tool_wins_and_the_original_not() -> (
     None
 ):
-    for settings in (BRAINWORMS_71, BRAINWORMS_5):
+    for settings in (BRAINWORMS_253, BRAINWORMS_286):
         result = play_settings(settings, 1)
         assert fields(result) == (AVOIDABLE_DEATH, 0, "stitches")
         assert result.alternatives == ("stitches",)
@@ -270,9 +285,9 @@ def test_the_fatal_turn_is_avoidable_if_another_tool_wins_and_the_original_not()
         assert working == set(result.alternatives)
     # The Brainworms deaths were unlucky before D23: no tool survived the fatal turn
     # (a skill-failed Transfusion). The Fatty Liver death was avoidable then as well.
-    assert survivors_of_the_fatal_turn(BRAINWORMS_5) == []
-    assert survivors_of_the_fatal_turn(BRAINWORMS_71) == []
-    assert "stitches" in survivors_of_the_fatal_turn(FATTY_LIVER_25_18)
+    assert survivors_of_the_fatal_turn(BRAINWORMS_286) == []
+    assert survivors_of_the_fatal_turn(BRAINWORMS_253) == []
+    assert "stitches" in survivors_of_the_fatal_turn(FATTY_LIVER_25_24)
 
 
 def test_lookback_3_leaves_a_hopeless_death_unlucky() -> None:
@@ -323,8 +338,8 @@ def test_same_settings_and_lookback_give_the_same_fields() -> None:
     for name, seed in (("baseline", 19), ("advisor", 8), ("baseline", 12)):
         assert fields(play(name, seed, 3)) == fields(play(name, seed, 3))
     assert play_settings(ADVISOR_LIVER_50) == play_settings(ADVISOR_LIVER_50)
-    assert play_settings(ADVISOR_HEART_50) == play_settings(ADVISOR_HEART_50)
-    for settings in (BRAINWORMS_71, BRAINWORMS_1):  # decided at the fatal turn
+    assert play_settings(ADVISOR_HEART_25) == play_settings(ADVISOR_HEART_25)
+    for settings in (BRAINWORMS_253, BRAINWORMS_1):  # decided at the fatal turn
         assert play_settings(settings, 1) == play_settings(settings, 1)
 
 
@@ -412,11 +427,11 @@ def test_bench_cli_refuses_lookback_zero(capsys: pytest.CaptureFixture[str]) -> 
 def test_play_prints_the_two_fields_for_a_death(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    args = ["play", "--malady", "Heart Attack", "--condition", "none", "--skill", "50"]
-    code = cli.main([*args, "--seed", "44", "--policy", "advisor", "--lookback", "3"])
+    args = ["play", "--malady", "Heart Attack", "--condition", "none", "--skill", "25"]
+    code = cli.main([*args, "--seed", "70", "--policy", "advisor", "--lookback", "3"])
     assert code == 0
     out = capsys.readouterr().out
-    assert "mistake_turns_back 1, alternative sponge" in out
+    assert "mistake_turns_back 1, alternative stitches" in out
 
 
 def test_play_rejects_lookback_zero(capsys: pytest.CaptureFixture[str]) -> None:
@@ -433,12 +448,18 @@ def test_a_bench_cell_records_the_fields_on_each_death() -> None:
     assert deaths[12]["alternative"] is None and deaths[12]["alternatives"] == []
     keys = {"mistake_turns_back", "alternative", "alternatives"}
     assert all(keys <= set(d) for d in deaths.values())
-    heart = run_cell(("advisor", ("Heart Attack", "none", 50, None), 50, 3))
-    (death,) = [d for d in heart["deaths"] if d["seed"] == 44]
-    assert death["mistake_turns_back"] == 1 and death["alternative"] == "sponge"
-    assert death["alternatives"] == ["sponge", "stitches", "lab_kit", "antiseptic"]
-    worms = run_cell(("advisor", ("Brainworms", "none", 50, None), 80, 1))
-    (fatal,) = [d for d in worms["deaths"] if d["seed"] == 71]
+    heart = run_cell(("advisor", ("Heart Attack", "none", 25, None), 80, 3))
+    (death,) = [d for d in heart["deaths"] if d["seed"] == 70]
+    assert death["mistake_turns_back"] == 1 and death["alternative"] == "stitches"
+    assert death["alternatives"] == [
+        "stitches",
+        "sponge",
+        "antiseptic",
+        "fix_it",
+        "antibiotics",
+    ]
+    worms = run_cell(("advisor", ("Brainworms", "none", 50, None), 300, 1))
+    (fatal,) = [d for d in worms["deaths"] if d["seed"] == 253]
     assert fatal["mistake_turns_back"] == 0 and fatal["alternative"] == "stitches"
     assert fatal["alternatives"] == ["stitches"]
 

@@ -28,6 +28,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D22 | 2026-10-06 | Transfuse only when the pulse could bleed out | Accepted, applied in M4 |
 | D23 | 2026-10-06 | One-turn avoidable deaths use the shared-roll test | Accepted, applied in M4 |
 | D24 | 2026-10-06 | Safety margins tuned per skill band | Applied in M4 (margins only; two targets still open) |
+| D25 | 2026-10-07 | Stitch surface bleeding before the stage rules | Applied in M4 |
 
 ## D1. Hand-written rule engine, not a trained model
 
@@ -280,3 +281,40 @@ Choices someone might later question, with the reason and what would reopen them
 - **Targets after tuning:** met on seeds 0-199: skill 0 (50.9%), owner's setup (98.3%), tools (22% fewer on the full grid), one-turn avoidable deaths (0.022% owner's setup, 0.54% full grid). Not met: skill 100 with no modifier, 94.9% against 95%, and the owner's setup on fresh seeds, 97.9% against 98%. Margins alone do not close the last 0.1 points. A pre-emptive Sponge at `hard_to_see` (a rule change, not made here, tried by patching the rule list in the search) lost 17 to 22 points at skills 0 and 100, in line with D13; limited to a positive fever above 100.4 F and never twice in a row it still lost 3 to 4 points.
 - **Risk:** timeouts over the full grid nearly doubled (129 to 235), almost all at skill 50 (18 to 98) and skill 25 (70 to 88), where the changes bite (skill 50 now uses the 2-turn pulse forecast; every skill uses the lower crisis temperature); the extra Transfusions and doses seem to push long surgeries past 80 turns. The avoidable count at skill 50 rose from 167 to 228 as well. Success still rose at those skills.
 - **Revisit if:** a rule change (D13's Sponge, E1 and E2 order) moves skill 100 past 95%, or the timeouts keep rising.
+
+## D25. Stitch surface bleeding before the stage rules
+
+- **Context:** on the long trauma surgeries (Massive Trauma, Brainworms, Serious Trauma, Serious Head Injury) bleeding is `losing` or `very_quickly` with no incision open. P7 (Splint) and P1 (Ultrasound) came before P8 (Stitches), so the advisor spent its turns on them while E3 (Transfusion) and E2 (Sponge) alternated, and the patient died of infection or bleed-out. A read-only investigation of the deaths found the pattern.
+- **Decision (owner approved):** P8 moves to directly before P1 in `RULES`, so it is evaluated right after E7; every emergency rule still comes first, and the rule ID stays P8. P8 also gets a guard: it returns nothing when the bleeding is `slowly` and the temperature is above `FEVER_TREAT_F` (100.4 F), so a hot patient with slow bleeding is left to the fever rules. Otherwise P8 is unchanged (no incision open, same reason text).
+- **Why:** heavy bleeding drains the pulse every turn and dirties the site, which the Ultrasound and the Splint do nothing about; a Stitches turn ends it. Slow bleeding is cheap, and above 100.4 F the fever is the bigger danger (D16), so the guard keeps P2 from being pushed back.
+- **Rule change (rule IDs unchanged):** `rules.RULES` order and the P8 guard only. `test_rules_are_in_doc_order` now expects E1-E7, P8, P1-P7, P9-P13.
+- **Result (benchmark, 200 runs per cell, before is D24; avoidable is the one-turn shared-roll test; paired tools are the advisor and the Train-E baseline on surgeries both win):**
+
+  | | Owner's setup, seeds 0-199, before | after | Full grid, seeds 0-199, before | after |
+  | --- | ---: | ---: | ---: | ---: |
+  | Success | 98.33% | 98.53% | 73.66% | 76.44% |
+  | Avoidable deaths (one turn) | 7 | 4 | 878 | 591 |
+  | Timeouts | 1 | 1 | 235 | 36 |
+  | Tools per success | 14.67 | 14.02 | 16.19 | 15.90 |
+  | Paired tools per success, advisor vs baseline | 10.1 vs 12.6 | 10.0 vs 12.6 | 10.0 vs 12.9 | 9.9 vs 12.9 |
+
+  By skill on the full grid, seeds 0-199: skill 0 50.92% to 54.55%, skill 25 61.65% to 65.10%, skill 50 74.50% to 77.88%, skill 75 86.37% to 88.69%, skill 100 94.89% to 96.00%. Full grid by malady: Massive Trauma 38.3% to 56.7%, Brainworms 30.1% to 42.9%, Serious Trauma 62.8% to 75.3%, Serious Head Injury 78.4% to 90.1%. In the owner's setup Brainworms went from 93.9% to 97.4% and Massive Trauma from 96.4% to 98.8%. The quick benchmark (5 runs per cell) went from 75.5% to 78.7%. Zero illegal moves in every report.
+
+  Final PRD section 10 numbers, advisor against the Train-E baseline (fresh seeds 1000-1199 are the D19 report numbers; tuning never saw them):
+
+  | Metric | Target | Seeds 0-199 | Fresh seeds 1000-1199 | Met |
+  | --- | --- | ---: | ---: | --- |
+  | Illegal moves | 0 | 0 | 0 | met |
+  | One-turn avoidable deaths, owner's setup | at most 0.1% | 4 (0.012%) | 0 (0.000%) | met |
+  | One-turn avoidable deaths, full grid | at most 1% | 591 (0.365%) | 537 (0.331%) | met |
+  | Success, owner's setup | at least 98% | 98.53% | 98.21% | met |
+  | Success, skill 100, no modifier | at least 95% | 96.00% | 95.23% | met |
+  | Success, skill 0, no modifier | at least 50% | 54.55% | 55.40% | met |
+  | Tools per success, paired wins, full grid | at least 20% fewer | 23.6% fewer (9.89 vs 12.94) | 23.4% fewer (9.83 vs 12.83) | met |
+  | Tools per success, paired wins, owner's setup (extra) | at least 20% fewer | 20.7% fewer (9.99 vs 12.59) | 20.7% fewer (9.84 vs 12.42) | met |
+  | Worst malady, tools against the baseline | at most +1 | +0.45 (Torn Punching Muscle) | +0.04 (Torn Punching Muscle) | met |
+  | Decision time | under 10 ms | median 0.018 ms, slowest 0.21 ms (8,699 calls) | same code | met |
+
+  Fresh-seed full grid by skill: 0 55.40%, 25 66.73%, 50 77.58%, 75 89.02%, 100 95.23%; the Train-E baseline on the same seeds wins 22.00% of the full grid and 28.40% in the owner's setup. Fresh owner's setup went from 97.88% (D24) to 98.21%. Tuning and fresh seeds differ by at most 1.6 points at any skill (fresh higher at skills 0, 25 and 75, lower at 50 and 100), with no sign of overfitting to seeds 0-199.
+- **Risk:** Ultrasound waits while heavy bleeding is stitched, so the diagnosis comes a turn or two later on those patients. P8 must stay below E6: in the search, P8 above E6 let fever deaths dominate and cost 6 points. Serious Trauma in the owner's setup went down, 99.8% to 98.8% on seeds 0-199, and the quick benchmark's avoidable count went from 3 to 5; the full-grid gain outweighs both.
+- **Revisit if:** Serious Trauma keeps falling in the owner's setup, or a death report shows a diagnosis that came too late (P1 deferred behind P8) as the last mistake.

@@ -18,7 +18,7 @@ flowchart LR
 def decide(state: ScreenState, memory: Memory, config: Config) -> Decision:
     memory.update(state)
     forecast = Forecast.from_state(state, memory, config)
-    for rule in RULES:                      # E1..E7, then P1..P13, in priority order
+    for rule in RULES:                      # E1..E7, P8, then P1..P7, P9..P13 (D25)
         decision = rule(state, memory, forecast, config)
         if decision and is_legal(decision.tool, state, memory):
             return decision
@@ -60,8 +60,11 @@ When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable
 
 ### Phase rules
 
+The table is in priority order. P8 is evaluated right after E7, before P1 ([D25](decisions.md#d25-stitch-surface-bleeding-before-the-stage-rules)); its ID stays P8.
+
 | ID | Name | Fires when | Tool |
 | --- | --- | --- | --- |
+| P8 | Surface bleeding | Bleeding, no incision open, unless the bleeding is `slowly` and the temperature is above 100.4 F (D25) | Stitches |
 | P1 | Diagnose | No diagnosis yet | Ultrasound |
 | P2 | Break fever | Fever is positive (fever text shown, or temperature rose since last turn), not yet known to be negative, and the temperature is above 100.4 F ([D16](decisions.md#d16-treat-a-fever-only-above-1004-f)) | Lab Kit if not done, else Antibiotics |
 | P3 | Fix | Fix It is usable and no incision is open ([D15](decisions.md#d15-close-the-incisions-before-fix-it-and-do-fix-it-last)) | Fix It |
@@ -69,7 +72,6 @@ When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable
 | P5 | Cut | A cut is needed (see below) and status is `unconscious` or `coming_to` | Scalpel |
 | P6 | Close | Incision open, no shattered bones, and the malady is fixed (or needs no Fix It) or Fix It is unlocked but not done (D15) | Stitches |
 | P7 | Splint | Diagnosed, broken bones, no incision open | Splint |
-| P8 | Surface bleeding | Bleeding, no incision open | Stitches |
 | P9 | Clean before cutting | A cut is needed next, site not `clean`, fever not yet known to be negative | Antiseptic |
 | P10 | Prep for cutting | A cut is needed next and status is `awake` | Anesthetic |
 | P11 | Finish fever | Temperature at or above the success threshold and fever not yet known to be negative | Lab Kit if not done, else Antibiotics |
@@ -84,6 +86,8 @@ When the heart stops and the site is `cant_see`, E1's Defibrillator isn't usable
 A malady that needs no Fix It (for example Broken Leg) is cut only to reach shattered bones for Pins. A fixed malady is never cut again: after Fix It, incisions below the count are only Stitches closing the site.
 
 **Fever gate (D16).** P2 treats a fever only when the temperature is strictly above `FEVER_TREAT_F` (100.4 F, the real game's finish threshold), under both the `surge` and `wiki` profiles. The gate covers both Lab Kit and Antibiotics. E6 (climbing fast, or a forecast reaching the crisis temperature) and P11 (at or above the finish threshold) are not gated.
+
+**Surface bleeding first (D25).** On the long trauma surgeries (Massive Trauma, Brainworms, Serious Trauma, Serious Head Injury) bleeding is `losing` or `very_quickly` with no incision open. With P7 and P1 ahead of it, the advisor spent its turns on Splint and Ultrasound while Transfusion and Sponge alternated, and the patient died of infection or bleed-out. P8 now runs right after E7, so heavy bleeding is stitched before the stage rules (diagnosis, splint, fever, cutting). It still needs no incision open and still sits below every emergency rule, E6 included: above E6 fever deaths dominate. The guard: slow bleeding is not stitched while the temperature is above `FEVER_TREAT_F` (100.4 F), so P2 and the other rules can treat the fever first. The reason text is unchanged.
 
 **Close before Fix It (D15).** SurgE unlocks Fix It once the needed incisions are reached and keeps it unlocked, and in the tray, after the incisions are stitched closed, until Fix It succeeds. So once Fix It is unlocked the advisor stops cutting (P5, P9 and P10 go quiet), P4 still pins any shattered bone, P6 closes every incision, and only then does P3 use Fix It with no incision open. The order for a Heart Attack is: cut to the needed count, Stitches back to 0, Fix It last. Each turn with an incision open costs pulse and dirt, and a Fix It skill fail then costs a turn with the site closed.
 

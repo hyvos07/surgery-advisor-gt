@@ -1,9 +1,9 @@
 """One function per rule, and the RULES priority list.
 
 The rules are in docs/decision-engine.md, in the same order: emergency rules E1-E7,
-then phase rules P1-P13. Each rule is a pure function that returns a `Decision` when
-it fires and `None` otherwise. Rule IDs are permanent. Thresholds and margins come
-from `config.py`, never from literals here.
+then P8, then phase rules P1-P7 and P9-P13 (D25). Each rule is a pure function that
+returns a `Decision` when it fires and `None` otherwise. Rule IDs are permanent.
+Thresholds and margins come from `config.py`, never from literals here.
 
 `is_legal` is the legality check and `fallback` is the last resort (rule `F0`); the
 engine uses all three (see `engine.py`).
@@ -270,13 +270,16 @@ def rule_p7_splint(
 def rule_p8_surface_bleeding(
     s: ScreenState, m: Memory, f: Forecast, c: Config
 ) -> Decision | None:
-    if s.bleeding is not None and not s.incision_open:
-        return Decision(
-            Tool.STITCHES,
-            "P8",
-            f"Bleeding is {_words(s.bleeding)} and no incision is open",
-        )
-    return None
+    if s.bleeding is None or s.incision_open:
+        return None
+    # Slow bleeding above the fever threshold waits for the fever rules (D25).
+    if s.bleeding is Bleeding.SLOWLY and s.temperature > FEVER_TREAT_F:
+        return None
+    return Decision(
+        Tool.STITCHES,
+        "P8",
+        f"Bleeding is {_words(s.bleeding)} and no incision is open",
+    )
 
 
 def rule_p9_clean_before_cutting(
@@ -333,6 +336,7 @@ RULES: tuple[RuleFn, ...] = (
     rule_e5_stop_heavy_bleeding,
     rule_e6_fever_crisis,
     rule_e7_clean_open_site,
+    rule_p8_surface_bleeding,  # D25: before the stage rules, not at its old slot
     rule_p1_diagnose,
     rule_p2_break_fever,
     rule_p3_fix,
@@ -340,7 +344,6 @@ RULES: tuple[RuleFn, ...] = (
     rule_p5_cut,
     rule_p6_close,
     rule_p7_splint,
-    rule_p8_surface_bleeding,
     rule_p9_clean_before_cutting,
     rule_p10_prep_for_cutting,
     rule_p11_finish_fever,
