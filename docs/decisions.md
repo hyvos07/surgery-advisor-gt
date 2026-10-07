@@ -23,7 +23,7 @@ Choices someone might later question, with the reason and what would reopen them
 | D17 | 2026-10-06 | Reset the PRD section 10 targets from the M3 benchmark | Accepted |
 | D18 | 2026-10-06 | In M4, success comes before tools | Accepted |
 | D19 | 2026-10-06 | Tune on seeds 0-199, report the final numbers on fresh seeds | Accepted |
-| D20 | 2026-10-06 | License the repository under AGPL-3.0 | Accepted, not yet applied |
+| D20 | 2026-10-06 | License the repository under AGPL-3.0 | Accepted, applied in M4 |
 | D21 | 2026-10-06 | Optional manual-input mode in the web viewer | Accepted, applied in M4 |
 | D22 | 2026-10-06 | Transfuse only when the pulse could bleed out | Accepted, applied in M4 |
 | D23 | 2026-10-06 | One-turn avoidable deaths use the shared-roll test | Accepted, applied in M4 |
@@ -216,7 +216,7 @@ Choices someone might later question, with the reason and what would reopen them
 - **Context:** the owner will make the repository public at MVP (PRD Q3). The harness and viewer run SurgE's AGPL-3.0 code; the advisor itself never imports it.
 - **Decision (owner):** AGPL-3.0 for the whole repository, the same as SurgE.
 - **Why:** no grey area about combining with SurgE; the advisor stays free to use, and anyone hosting a modified version must publish its source.
-- **Status:** accepted, not yet applied. Adding `LICENSE` and updating the README credits is an M4 task, before the repository goes public. D4's "revisit if published" is answered by this.
+- **Status:** applied in M4: `LICENSE` holds the standard AGPL-3.0 text (copied from SurgE's own `LICENSE`), `pyproject.toml` declares `AGPL-3.0-or-later`, and the README credits say so. "Or later" is the FSF's recommended form and stays compatible with SurgE's plain "AGPL". D4's "revisit if published" is answered by this.
 
 ## D21. Optional manual-input mode in the web viewer
 

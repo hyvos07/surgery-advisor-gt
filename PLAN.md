@@ -99,7 +99,7 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 - [ ] Meet the D17 targets (PRD section 10), including one-turn avoidable deaths of at most 0.1% in the owner's setup and 1% over the full grid
 - [x] Seed offset for `surg bench` (D19); tune on seeds 0-199 and report the final numbers on seeds 1000-1199 (`--seed-offset`)
 - [x] Manual-input mode in the web viewer, as an option beside the simulator mode (D21, PRD FR21)
-- [ ] Add the AGPL-3.0 `LICENSE` and update the README credits (D20), before the repository goes public
+- [x] Add the AGPL-3.0 `LICENSE` and update the README credits (D20), before the repository goes public
 - [ ] Record final numbers in the README (fresh seeds, D19)
 
 ## M5: Real game input (later, out of MVP scope)

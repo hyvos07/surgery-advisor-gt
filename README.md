@@ -2,7 +2,7 @@
 
 A rule-based advisor that reads the current state of a Growtopia surgery and tells you the next tool to use, with the rule that chose it and why. It is tested against [SurgE](https://github.com/CantFindDev/SurgE), an open-source surgery simulator.
 
-> **Status:** M3 done; M4 (tuning) next. The advisor runs in the simulator and wins 97.2% of surgeries at skill 100 with the Exquisite Bone Saw, against 28.7% for SurgE's Train-E tips. See [PLAN.md](PLAN.md) for the latest numbers.
+> **Status:** M4 (tuning, the last MVP milestone) in progress. The advisor runs in the simulator and wins 98.3% of surgeries at skill 100 with the Exquisite Bone Saw, against 28.7% for SurgE's Train-E tips. See [PLAN.md](PLAN.md) for the latest numbers.
 
 ```json
 {"tool": "scalpel", "rule": "P5", "reason": "Heart Attack needs 2 incisions, 1 open; patient is unconscious."}
@@ -54,4 +54,4 @@ This project runs only against the SurgE simulator. It does not connect to, read
 
 - Surgery mechanics and data come from [SurgE](https://github.com/CantFindDev/SurgE) by CantFind, AGPL-3.0, included unmodified as a git submodule under `vendor/SurgE`.
 - Growtopia is a trademark of its owners. This project is not affiliated with or endorsed by them.
-- This repository's own license is not chosen yet (PRD open question Q3).
+- This repository is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE), the same license family as SurgE ([D20](docs/decisions.md)). If you host a modified version for others to use over a network, you must offer them its source.

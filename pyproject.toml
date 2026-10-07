@@ -3,6 +3,8 @@ name = "surgery-advisor"
 version = "0.1.0"
 description = "Rule-based advisor for Growtopia surgeries, tested against the SurgE simulator."
 readme = "README.md"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
     # Web viewer only; src/advisor uses the standard library only.

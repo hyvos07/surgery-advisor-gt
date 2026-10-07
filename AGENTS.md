@@ -6,7 +6,7 @@ Instructions for coding agents working in this repository. Humans can read it to
 
 The Surgery Advisor reads the current state of a Growtopia surgery and returns the next tool to use, with a rule ID and a reason. It is a hand-written rule engine, not a machine learning model. It is tested against [SurgE](https://github.com/CantFindDev/SurgE), an open-source surgery simulator, kept unmodified under `vendor/SurgE`. The MVP only advises: no tapping, no screen capture, no connection to the live game.
 
-**Status:** M3 done; M4 (tuning) next. Every command and module below exists. The status line at the top of [PLAN.md](PLAN.md) has the latest numbers.
+**Status:** M4 (tuning, the last MVP milestone) in progress. Every command and module below exists. The status line at the top of [PLAN.md](PLAN.md) has the latest numbers.
 
 ## Read before you start
 
