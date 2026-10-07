@@ -2,7 +2,7 @@
 
 A rule-based advisor that reads the current state of a Growtopia surgery and tells you the next tool to use, with the rule that chose it and why. It is tested against [SurgE](https://github.com/CantFindDev/SurgE), an open-source surgery simulator.
 
-> **Status:** M4 (tuning, the last MVP milestone) in progress. The advisor runs in the simulator and wins 98.3% of surgeries at skill 100 with the Exquisite Bone Saw, against 28.7% for SurgE's Train-E tips. See [PLAN.md](PLAN.md) for the latest numbers.
+> **Status:** MVP complete (M0–M4). Every target in [PRD section 10](PRD.md#10-success-metrics) is met on fresh seeds the tuning never saw. Reading the real game screen (M5) is out of scope.
 
 ```json
 {"tool": "scalpel", "rule": "P5", "reason": "Heart Attack needs 2 incisions, 1 open; patient is unconscious."}
@@ -17,6 +17,21 @@ A rule-based advisor that reads the current state of a Growtopia surgery and tel
 - **Handles all 27 maladies, 6 special conditions, 4 modifiers and skill levels 0–100.**
 
 Why rules and not a model: [docs/decisions.md](docs/decisions.md#d1-hand-written-rule-engine-not-a-trained-model).
+
+## Results
+
+Measured in SurgE on seeds 1000–1199, which were never used while tuning the rules ([D19](docs/decisions.md)): 200 seeded surgeries per cell, 27 maladies × 6 special conditions.
+
+| | Advisor | Train-E tips (SurgE's built-in hints) |
+| --- | ---: | ---: |
+| Skill 100 with the Exquisite Bone Saw | **98.2%** | 28.4% |
+| Skill 100, no modifier | **95.2%** | 27.4% |
+| Skill 0 | **55.4%** | 16.3% |
+| All skill levels (0, 25, 50, 75, 100) | **76.8%** | 22.0% |
+| Tools per success, on surgeries both won | **9.8** | 12.8 |
+| Illegal moves | 0 | – |
+
+Deaths where another tool would clearly have saved the patient are 0 in 32,400 surgeries at skill 100 with the Bone Saw, and 0.33% across all skill levels. A decision takes about 0.02 ms. The rest of the deaths come from skill fails: at skill 0, 30% of tool uses fail.
 
 ## Quick start
 

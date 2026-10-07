@@ -2,7 +2,7 @@
 
 The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the full benchmark grid with zero avoidable deaths. Requirements are in [PRD.md](PRD.md); this file is the order of work.
 
-**Current status:** M4 in progress. Applied: D22 (Transfusion only when the pulse could bleed out), the seed offset (D19), the manual-input mode (D21) and the fairer death check. Owner's setup 98.1% (97.7% on fresh seeds), full grid 72.9%, skill 0 50.0%, skill 100 94.5%, tools per success 22% below the Train-E baseline on paired wins, one-turn avoidable deaths 0.022% (owner's setup) and 0.50% (full grid) under D23, zero illegal moves. D24 tuned the margins (skill 100 94.9%, skill 0 50.9%, owner's setup 98.3% on seeds 0-199 and 97.9% on fresh seeds, full grid 73.7%); skill 100 and the fresh owner's setup are still just under target. Next: the license and the final fresh-seed numbers.
+**Current status:** M4 done; the MVP is complete. On fresh seeds 1000-1199 every PRD section 10 target is met: owner's setup 98.2%, skill 100 95.2%, skill 0 55.4%, full grid 76.8%, one-turn avoidable deaths 0% (owner's setup) and 0.33% (full grid), 23% fewer tools than the Train-E baseline on paired wins, zero illegal moves, 0.02 ms per decision. M5 (real game input) is a separate decision for the owner.
 
 ## Milestones
 
@@ -89,18 +89,18 @@ The MVP is done at M4: the advisor beats SurgE's Train-E baseline across the ful
 
 ## M4: Tuned MVP
 
-- [ ] Fix the top failing rules from M3, re-running the same seeds after each change
+- [x] Fix the top failing rules from M3, re-running the same seeds after each change (D22 E3 bleed-out forecast, D25 surface bleeding first)
 - [x] Tune safety margins per skill band (config only; recorded in decisions.md without asking each time) (done as D24: fever crisis 103 F in every band, high band from 15%; skill 100 94.5% -> 94.9%, owner's setup 98.1% -> 98.3% on seeds 0-199 and 97.7% -> 97.9% on fresh seeds)
 - [x] Candidate from M3's tools comparison: P2 broke every positive fever with Lab Kit and Antibiotics, even in short surgeries. Done as D16 (owner: treat a fever only above 100.4 F); paired tools per success 12.3 -> 10.1 against the baseline's 12.9, success flat, but 475 more avoidable deaths on long trauma surgeries to check in the M3 death analysis
 - [x] From M3 (owner: M4, not before): Brainworms in the owner's setup, 169 of 316 avoidable deaths, where Antibiotics would have beaten E3's Transfusion; consider letting the fever rules skip the 100.4 F gate (D16) for fevers that keep climbing (done as D22: the cause was E3 transfusing on a merely `weak` pulse, not D16; Brainworms 67% -> 89%)
 - [x] From M3 (owner: M4, not before): a Sponge was the better tool in 12,839 of 20,219 full-grid avoidable deaths, mostly instead of E6's fever tool or E1's Defibrillator with the site almost unseeable (D13's revisit condition) (investigated: every Sponge variant lost 7 to 20 points, so D13 stays; the count was mostly the death check's tool-order and fresh-roll bias)
 - [x] Fix the lookback death check: a death is avoidable only if the other tool wins and the advisor's own tool replayed with fresh rolls does not (owner-approved; done with common random numbers: lookback-3 avoidable deaths 316 -> 71 in the owner's setup and 20,219 -> 6,823 over the full grid, most of the old count was luck)
 - [x] Apply D23: the fatal turn uses the shared-roll test with the original-tool control, then re-measure the one-turn avoidable target (done: 0.022% owner's setup, 0.006% on fresh seeds, 0.50% full grid; both limits met)
-- [ ] Meet the D17 targets (PRD section 10), including one-turn avoidable deaths of at most 0.1% in the owner's setup and 1% over the full grid
+- [x] Meet the D17 targets (PRD section 10), including one-turn avoidable deaths of at most 0.1% in the owner's setup and 1% over the full grid
 - [x] Seed offset for `surg bench` (D19); tune on seeds 0-199 and report the final numbers on seeds 1000-1199 (`--seed-offset`)
 - [x] Manual-input mode in the web viewer, as an option beside the simulator mode (D21, PRD FR21)
 - [x] Add the AGPL-3.0 `LICENSE` and update the README credits (D20), before the repository goes public
-- [ ] Record final numbers in the README (fresh seeds, D19)
+- [x] Record final numbers in the README (fresh seeds, D19)
 
 ## M5: Real game input (later, out of MVP scope)
 
